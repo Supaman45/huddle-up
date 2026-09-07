@@ -1,18 +1,83 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold } from '@expo-google-fonts/barlow';
+import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
+import { useFonts } from 'expo-font';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { useTheme } from '@/lib/theme';
+import { SessionProvider, useSession } from '@/providers/session';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function Gate() {
+  const { ready, session, household } = useSession();
+  const segments = useSegments();
+  const router = useRouter();
+  const t = useTheme();
+
+  useEffect(() => {
+    if (!ready) return;
+    const top = segments[0] as string | undefined;
+    const inAuth = top === '(auth)';
+    const inJoin = top === 'join'; // deep links to /join/CODE are allowed to render, they redirect themselves
+    if (!session && !inAuth && !inJoin) {
+      router.replace('/(auth)/sign-in');
+    } else if (session && !household && top !== 'onboarding' && !inJoin) {
+      router.replace('/onboarding');
+    } else if (session && household && (inAuth || top === 'onboarding')) {
+      router.replace('/(tabs)');
+    }
+  }, [ready, session, household, segments, router]);
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: t.bg },
+        animation: 'fade_from_bottom',
+      }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="onboarding" />
+      <Stack.Screen name="event/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="team/[id]" />
+      <Stack.Screen name="team/new" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="team/join" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="athlete/new" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="join/[code]" />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  const scheme = useColorScheme();
+  const [loaded] = useFonts({
+    Barlow_400Regular,
+    Barlow_500Medium,
+    Barlow_600SemiBold,
+    BarlowCondensed_600SemiBold,
+    BarlowCondensed_700Bold,
+  });
+
+  useEffect(() => {
+    if (loaded) SplashScreen.hideAsync();
+  }, [loaded]);
+
+  if (!loaded) return null;
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <SessionProvider>
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <Gate />
+        </SessionProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
