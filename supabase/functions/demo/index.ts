@@ -335,28 +335,38 @@ async function reset(admin: Admin) {
 
 // ---------- Handler ----------
 
+// The web build calls this from a different origin, so the browser asks first.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+const text = (body: string, status: number) => new Response(body, { status, headers: CORS });
+
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (req.method !== 'POST') return text('Method not allowed', 405);
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const authHeader = req.headers.get('Authorization') ?? '';
   const user = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: me } = await user.auth.getUser();
-  if (!me?.user) return new Response('Unauthorized', { status: 401 });
+  if (!me?.user) return text('Unauthorized', 401);
 
   const { data: isAdmin } = await admin.from('app_admins').select('profile_id').eq('profile_id', me.user.id).maybeSingle();
-  if (!isAdmin) return new Response('Demo mode is not available on this account', { status: 403 });
+  if (!isAdmin) return text('Demo mode is not available on this account', 403);
 
   const body = await req.json().catch(() => ({}));
   try {
-    if (body.action === 'reset') return Response.json(await reset(admin));
+    if (body.action === 'reset') return json(await reset(admin));
     if (body.action === 'load') {
       const sport: Sport = body.sport === 'basketball' ? 'basketball' : 'soccer';
       // One demo team at a time: loading again replaces the last one.
       await reset(admin);
-      return Response.json(await load(admin, me.user.id, sport));
+      return json(await load(admin, me.user.id, sport));
     }
-    return new Response('Unknown action', { status: 400 });
+    return text('Unknown action', 400);
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 500 });
+    return json({ error: (e as Error).message }, 500);
   }
 });

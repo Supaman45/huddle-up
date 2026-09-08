@@ -149,7 +149,15 @@ async function syncTeam(admin: any, team: { id: string; ics_url: string }) {
   }
 }
 
+// The web build calls "Sync now" from a different origin, so the browser preflights first.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-token',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -158,20 +166,20 @@ Deno.serve(async (req: Request) => {
     // caller must be staff on the team
     const user = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
     const { data: me } = await user.auth.getUser();
-    if (!me?.user) return new Response('Unauthorized', { status: 401 });
+    if (!me?.user) return new Response('Unauthorized', { status: 401, headers: CORS });
     const { data: membership } = await admin.from('team_members').select('role').eq('team_id', body.team_id).eq('profile_id', me.user.id).maybeSingle();
-    if (!membership || !['manager', 'coach'].includes(membership.role)) return new Response('Only team staff can sync', { status: 403 });
+    if (!membership || !['manager', 'coach'].includes(membership.role)) return new Response('Only team staff can sync', { status: 403, headers: CORS });
     const { data: team } = await admin.from('teams').select('id, ics_url').eq('id', body.team_id).single();
-    if (!team?.ics_url) return Response.json({ skipped: 'no ics_url' });
-    return Response.json(await syncTeam(admin, team as { id: string; ics_url: string }));
+    if (!team?.ics_url) return Response.json({ skipped: 'no ics_url' }, { headers: CORS });
+    return Response.json(await syncTeam(admin, team as { id: string; ics_url: string }), { headers: CORS });
   }
 
   // Scheduled path: the hourly pg_cron job presents a token stored only in the database.
   const cronToken = req.headers.get('x-cron-token') ?? '';
   const { data: okCron } = cronToken ? await admin.rpc('check_cron_token', { p_token: cronToken }) : { data: false };
-  if (!okCron && !authHeader.includes(SERVICE_KEY)) return new Response('Unauthorized', { status: 401 });
+  if (!okCron && !authHeader.includes(SERVICE_KEY)) return new Response('Unauthorized', { status: 401, headers: CORS });
   const { data: teams } = await admin.from('teams').select('id, ics_url').not('ics_url', 'is', null);
   const results = [];
   for (const t of (teams ?? []) as { id: string; ics_url: string }[]) results.push(await syncTeam(admin, t));
-  return Response.json({ synced: results.length, results });
+  return Response.json({ synced: results.length, results }, { headers: CORS });
 });

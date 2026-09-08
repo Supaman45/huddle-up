@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button, Card, Chip, Row, SectionHeader, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -49,7 +49,8 @@ export function DemoPanel() {
     setBusy(action);
     const { data, error } = await supabase.functions.invoke<LoadResult>('demo', { body: action === 'load' ? { action, sport } : { action } });
     setBusy(null);
-    if (error || data?.error) return Alert.alert('Demo did not load', error?.message ?? data?.error ?? 'Unknown error');
+    // Toast, not Alert: Alert.alert is a no-op on the web, and a silent failure here cost an hour once.
+    if (error || data?.error) return toast(`Demo did not load: ${error?.message ?? data?.error ?? 'unknown error'}`, { tone: 'error' });
     if (action === 'reset') {
       setLast(null);
       toast('Demo data removed', { tone: 'signal' });
