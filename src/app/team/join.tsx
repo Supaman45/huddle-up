@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { space, sportLabel } from '@/lib/theme';
 import type { Sport } from '@/lib/types';
 import { useSession } from '@/providers/session';
+import { useToast } from '@/providers/toast';
 
 interface Peek {
   id: string;
@@ -19,6 +20,7 @@ interface Peek {
 export default function JoinTeam({ initialCode }: { initialCode?: string }) {
   const router = useRouter();
   const { athletes } = useSession();
+  const toast = useToast();
   const [code, setCode] = useState(initialCode ?? '');
   const [peek, setPeek] = useState<Peek | null>(null);
   const [kidIds, setKidIds] = useState<string[]>(athletes.length === 1 ? [athletes[0].id] : []);
@@ -47,6 +49,7 @@ export default function JoinTeam({ initialCode }: { initialCode?: string }) {
       await supabase.from('team_athletes').upsert(kidIds.map((athlete_id) => ({ team_id: tid, athlete_id })), { onConflict: 'team_id,athlete_id' });
     }
     setBusy(false);
+    toast(`You're on ${peek.name}`);
     router.replace({ pathname: '/team/[id]', params: { id: tid as string } });
   }
 

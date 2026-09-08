@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import type { Athlete, CarpoolOffer, CarpoolRequest, Event, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team } from '@/lib/types';
 import { useSession } from '@/providers/session';
+import { useToast } from '@/providers/toast';
 
 const dirLabel: Record<RideDirection, string> = { to: 'There', from: 'Back', both: 'Both ways' };
 
@@ -17,6 +18,7 @@ export default function EventScreen() {
   const router = useRouter();
   const t = useTheme();
   const { profile, athletes } = useSession();
+  const toast = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [offers, setOffers] = useState<CarpoolOffer[]>([]);
@@ -96,7 +98,11 @@ export default function EventScreen() {
       await supabase.from('rsvps').delete().eq('event_id', id).eq('athlete_id', athleteId);
     } else {
       const { error } = await supabase.from('rsvps').upsert({ event_id: id, athlete_id: athleteId, status, set_by: profile!.id, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
-      if (error) Alert.alert('Could not save RSVP', error.message);
+      if (error) toast(error.message, { tone: 'error' });
+      else {
+        const kid = athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid';
+        toast(status === 'going' ? `${kid} is going` : status === 'out' ? `${kid} is out` : `${kid} is a maybe`);
+      }
     }
     await load();
   }
@@ -105,45 +111,58 @@ export default function EventScreen() {
     const seats = Number(offerForm.seats);
     if (!seats || seats < 1) return Alert.alert('How many seats can you take?');
     const { error } = await supabase.from('carpool_offers').insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
-    if (error) return Alert.alert('Could not post ride', error.message);
+    if (error) return toast(error.message, { tone: 'error' });
     setOfferForm({ open: false, seats: '2', direction: 'both', note: '' });
+    toast(`You're driving · ${seats} ${seats === 1 ? 'seat' : 'seats'} open`);
   }
 
   async function cancelOffer(offerId: string) {
     await supabase.from('carpool_requests').update({ offer_id: null, status: 'open' }).eq('offer_id', offerId);
     await supabase.from('carpool_offers').delete().eq('id', offerId);
+    toast('Ride cancelled. Riders were moved back to needing a ride.', { tone: 'signal' });
   }
 
   async function requestRide(athleteId: string) {
     const { error } = await supabase.from('carpool_requests').insert({ event_id: id, athlete_id: athleteId, requested_by: profile!.id, direction: 'both' });
-    if (error && !error.message.includes('duplicate')) Alert.alert('Could not request', error.message);
+    if (error && !error.message.includes('duplicate')) return toast(error.message, { tone: 'error' });
+    const kid = athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid';
+    toast(`Ride requested for ${kid}. Drivers on the team can see it now.`);
   }
 
   async function cancelRequest(reqId: string) {
     await supabase.from('carpool_requests').delete().eq('id', reqId);
+    toast('Ride request cancelled', { tone: 'signal' });
   }
 
   async function takeRider(req: CarpoolRequest, offer: CarpoolOffer) {
     if (seatsTaken(offer.id) >= offer.seats) return Alert.alert('That car is full.');
     const { error } = await supabase.from('carpool_requests').update({ offer_id: offer.id, status: 'matched' }).eq('id', req.id);
-    if (error) Alert.alert('Could not match', error.message);
+    if (error) return toast(error.message, { tone: 'error' });
+    toast(`${req.athlete?.first_name ?? 'Rider'} is in your car. ${req.requester?.full_name?.split(' ')[0] ?? 'Their parent'} has been told.`);
   }
 
   async function releaseRider(req: CarpoolRequest) {
     await supabase.from('carpool_requests').update({ offer_id: null, status: 'open' }).eq('id', req.id);
+    toast(`${req.athlete?.first_name ?? 'Rider'} needs a ride again`, { tone: 'signal' });
   }
 
   async function addSlot() {
     if (!slotForm.title.trim()) return Alert.alert('Name the slot, like "Orange slices" or "Line the field".');
     const { error } = await supabase.from('signup_slots').insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: profile!.id });
-    if (error) return Alert.alert('Could not add', error.message);
+    if (error) return toast(error.message, { tone: 'error' });
     setSlotForm({ open: false, title: '', kind: 'snack', needed: '1' });
+    toast('Slot added. The team can claim it now.');
   }
 
   async function claim(slot: SignupSlot) {
     const mine = slot.claims?.find((c) => c.profile_id === profile?.id);
-    if (mine) await supabase.from('signup_claims').delete().eq('id', mine.id);
-    else await supabase.from('signup_claims').insert({ slot_id: slot.id, profile_id: profile!.id });
+    if (mine) {
+      await supabase.from('signup_claims').delete().eq('id', mine.id);
+      toast(`You're off ${slot.title}`, { tone: 'signal' });
+    } else {
+      await supabase.from('signup_claims').insert({ slot_id: slot.id, profile_id: profile!.id });
+      toast(`You've got ${slot.title}. We'll remind you the day before.`);
+    }
   }
 
   function openMaps() {

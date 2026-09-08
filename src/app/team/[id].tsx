@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { space, sportLabel, useTheme } from '@/lib/theme';
 import type { Athlete, EventType, MyEvent, Team, TeamMember } from '@/lib/types';
 import { useSession } from '@/providers/session';
+import { useToast } from '@/providers/toast';
 
 function nextSaturdayNine() {
   const d = new Date();
@@ -25,6 +26,7 @@ export default function TeamSpace() {
   const router = useRouter();
   const t = useTheme();
   const { profile, athletes } = useSession();
+  const toast = useToast();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roster, setRoster] = useState<Athlete[]>([]);
@@ -72,7 +74,7 @@ export default function TeamSpace() {
       await Share.share({ message: msg });
     } catch {
       await Clipboard.setStringAsync(msg);
-      Alert.alert('Copied', 'Invite text copied.');
+      toast('Invite copied. Paste it in the team text thread.');
     }
   }
 
@@ -80,7 +82,8 @@ export default function TeamSpace() {
     setSyncing(true);
     const { error } = await supabase.functions.invoke('ics-sync', { body: { team_id: id } });
     setSyncing(false);
-    if (error) Alert.alert('Sync failed', error.message);
+    if (error) toast(`Sync failed: ${error.message}`, { tone: 'error' });
+    else toast('Schedule synced');
     await load();
   }
 
@@ -95,14 +98,16 @@ export default function TeamSpace() {
       ends_at: new Date(newEvent.when.getTime() + mins * 60000).toISOString(),
       location_name: newEvent.location.trim() || null,
     });
-    if (error) return Alert.alert('Could not add event', error.message);
+    if (error) return toast(error.message, { tone: 'error' });
     setNewEvent((s) => ({ ...s, title: '', location: '' }));
     setAdding(false);
+    toast(`${newEvent.title.trim()} added to the schedule`);
     await load();
   }
 
   async function addMyKid(athleteId: string) {
     await supabase.from('team_athletes').upsert({ team_id: id, athlete_id: athleteId }, { onConflict: 'team_id,athlete_id' });
+    toast(`${athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid'} added to the roster`);
     await load();
   }
 

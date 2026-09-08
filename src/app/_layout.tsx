@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/lib/theme';
 import { SessionProvider, useSession } from '@/providers/session';
+import { ToastProvider } from '@/providers/toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -76,8 +77,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SessionProvider>
-          <StatusBar style="light" />
-          <Gate />
+          <ToastProvider>
+            <StatusBar style="light" />
+            <Gate />
+          </ToastProvider>
         </SessionProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
