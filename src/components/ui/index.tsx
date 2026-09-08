@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -433,9 +434,16 @@ export function Segments<T extends string>({ value, onChange, items }: { value: 
 }
 
 // ---------- Back link ----------
-export function BackLink({ onPress, label = 'Back' }: { onPress: () => void; label?: string }) {
+// Falls back to the home tab when there is no history, e.g. a page opened from a URL on web.
+export function BackLink({ onPress, label = 'Back' }: { onPress?: () => void; label?: string }) {
+  const router = useRouter();
+  const go = () => {
+    if (onPress) return onPress();
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ paddingVertical: space.sm, opacity: pressed ? 0.6 : 1, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' })}>
+    <Pressable onPress={go} style={({ pressed }) => ({ paddingVertical: space.sm, opacity: pressed ? 0.6 : 1, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' })}>
       <Text variant="bodyBold" color="accent">
         ‹ {label}
       </Text>

@@ -120,7 +120,7 @@ export default function TeamSpace() {
 
   return (
     <Screen glow>
-      <BackLink onPress={() => router.back()} />
+      <BackLink />
       <Row gap={space.md}>
         <Avatar name={team.name} color={team.color} size={52} />
         <View style={{ flex: 1 }}>

@@ -149,7 +149,7 @@ export default function TeamChat() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ paddingTop: insets.top, paddingHorizontal: space.lg, borderBottomWidth: 1, borderColor: t.line, backgroundColor: t.bg }}>
         <Row style={{ justifyContent: 'space-between' }}>
-          <BackLink onPress={() => router.back()} />
+          <BackLink />
           <View style={{ alignItems: 'center' }}>
             <Text variant="h3">{team?.name ?? 'Team chat'}</Text>
             <Text variant="small" color="faint">

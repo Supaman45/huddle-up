@@ -154,7 +154,7 @@ export default function EventScreen() {
 
   return (
     <Screen glow>
-      <BackLink onPress={() => router.back()} />
+      <BackLink />
       <Row style={{ alignItems: 'stretch' }} gap={space.md}>
         <View style={{ width: 5, borderRadius: 3, backgroundColor: team.color }} />
         <View style={{ flex: 1 }}>
