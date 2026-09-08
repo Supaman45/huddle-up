@@ -73,10 +73,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
-  const value = useMemo(
-    () => ({ ready, session, profile, household, athletes, refresh, signOut }),
-    [ready, session, profile, household, athletes, refresh, signOut],
-  );
+  const value = useMemo(() => ({ ready, session, profile, household, athletes, refresh, signOut }), [ready, session, profile, household, athletes, refresh, signOut]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

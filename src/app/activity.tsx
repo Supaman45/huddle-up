@@ -51,7 +51,7 @@ export default function Activity() {
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('my_activity', { p_limit: 80 });
-    setRows((data as ActivityRow[]) ?? []);
+    setRows(data ?? []);
     // Opening the screen is the read receipt. Marking after the fetch keeps the
     // "new" dots visible on this pass and clears them for the next one.
     await supabase.rpc('mark_activity_read');
@@ -111,10 +111,7 @@ export default function Activity() {
 
       {rows !== null && shown.length === 0 ? (
         <View style={{ marginTop: space.xl }}>
-          <Empty
-            title="Nothing has changed"
-            body="When a coach moves a practice, a parent asks for a ride or someone claims the snack slot, it lands here."
-          />
+          <Empty title="Nothing has changed" body="When a coach moves a practice, a parent asks for a ride or someone claims the snack slot, it lands here." />
         </View>
       ) : null}
 
@@ -130,7 +127,15 @@ export default function Activity() {
               const body = (
                 <Card rail={r.is_new ? accentColor : undefined} style={{ paddingLeft: r.is_new ? space.xl : space.lg, opacity: r.kind === 'event_cancelled' ? 0.9 : 1 }}>
                   <Row style={{ alignItems: 'flex-start' }} gap={10}>
-                    <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: tone === 'signal' ? t.signalSoft : tone === 'accent' ? t.accentSoft : t.surfaceAlt }}>
+                    <View
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 15,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: tone === 'signal' ? t.signalSoft : tone === 'accent' ? t.accentSoft : t.surfaceAlt,
+                      }}>
                       {iconFor(r.kind, accentColor)}
                     </View>
                     <View style={{ flex: 1 }}>
@@ -154,7 +159,10 @@ export default function Activity() {
                 </Card>
               );
               return r.event_id ? (
-                <Pressable key={r.id} onPress={() => router.push({ pathname: '/event/[id]', params: { id: r.event_id! } })} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+                <Pressable
+                  key={r.id}
+                  onPress={() => router.push({ pathname: '/event/[id]', params: { id: r.event_id! } })}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
                   {body}
                 </Pressable>
               ) : (

@@ -46,7 +46,10 @@ export default function JoinTeam({ initialCode }: { initialCode?: string }) {
       return setError(e.message);
     }
     if (kidIds.length) {
-      await supabase.from('team_athletes').upsert(kidIds.map((athlete_id) => ({ team_id: tid, athlete_id })), { onConflict: 'team_id,athlete_id' });
+      await supabase.from('team_athletes').upsert(
+        kidIds.map((athlete_id) => ({ team_id: tid, athlete_id })),
+        { onConflict: 'team_id,athlete_id' },
+      );
     }
     setBusy(false);
     toast(`You're on ${peek.name}`);

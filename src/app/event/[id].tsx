@@ -1,19 +1,18 @@
-import { formatDistanceToNowStrict } from 'date-fns';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 
 import { DateTimeField } from '@/components/date-time-field';
-import { CarIcon, PencilIcon, PinIcon, SnackIcon } from '@/components/icons';
+import { CarpoolBoard, type OfferForm } from '@/components/event/carpool-board';
+import { SignupBoard, type SlotForm } from '@/components/event/signup-board';
+import { PencilIcon, PinIcon } from '@/components/icons';
 import { Avatar, Button, NavBar, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
-import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team, TeamRole } from '@/lib/types';
+import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, Rsvp, RsvpStatus, SignupSlot, Team, TeamRole } from '@/lib/types';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
-
-const dirLabel: Record<RideDirection, string> = { to: 'There', from: 'Back', both: 'Both ways' };
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,18 +28,19 @@ export default function EventScreen() {
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [rsvps, setRsvps] = useState<Rsvp[]>([]);
   const [game, setGame] = useState<Game | null>(null);
-  const [offerForm, setOfferForm] = useState<{ open: boolean; seats: string; direction: RideDirection; note: string }>({ open: false, seats: '2', direction: 'both', note: '' });
-  const [slotForm, setSlotForm] = useState<{ open: boolean; title: string; kind: SignupSlot['kind']; needed: string }>({ open: false, title: '', kind: 'snack', needed: '1' });
+  const [offerForm, setOfferForm] = useState<OfferForm>({ open: false, seats: '2', direction: 'both', note: '' });
+  const [slotForm, setSlotForm] = useState<SlotForm>({ open: false, title: '', kind: 'snack', needed: '1' });
   const [myRole, setMyRole] = useState<TeamRole | null>(null);
   const [edit, setEdit] = useState<{ open: boolean; title: string; type: EventType; when: Date; minutes: string; location: string; notes: string } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [nudging, setNudging] = useState(false);
+  const [awayIds, setAwayIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const { data: ev } = await supabase.from('events').select('*').eq('id', id).single();
     if (!ev) return;
     setEvent(ev as Event);
-    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }, { data: gm }, { data: me }] = await Promise.all([
+    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }, { data: gm }, { data: me }, { data: aw }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', ev.team_id).single(),
       supabase.from('carpool_offers').select('*, driver:profiles(*)').eq('event_id', id).order('created_at'),
       supabase.from('carpool_requests').select('*, athlete:athletes(*), requester:profiles(*)').eq('event_id', id).neq('status', 'cancelled').order('created_at'),
@@ -49,14 +49,16 @@ export default function EventScreen() {
       supabase.from('rsvps').select('*, athlete:athletes(*)').eq('event_id', id),
       supabase.from('games').select('*').eq('event_id', id).maybeSingle(),
       supabase.from('team_members').select('role').eq('team_id', ev.team_id).eq('profile_id', profile!.id).maybeSingle(),
+      supabase.rpc('away_athletes', { p_event_id: id }),
     ]);
     setMyRole((me as { role: TeamRole } | null)?.role ?? null);
+    setAwayIds(aw ?? []);
     setTeam(tm as Team);
-    setOffers((of as CarpoolOffer[]) ?? []);
-    setRequests((rq as CarpoolRequest[]) ?? []);
-    setSlots((sl as SignupSlot[]) ?? []);
-    setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete));
-    setRsvps((rs as Rsvp[]) ?? []);
+    setOffers(of ?? []);
+    setRequests(rq ?? []);
+    setSlots(sl ?? []);
+    setRoster((ta ?? []).map((r) => r.athlete));
+    setRsvps(rs ?? []);
     setGame((gm as Game) ?? null);
   }, [id, profile]);
 
@@ -97,7 +99,11 @@ export default function EventScreen() {
   const arriveAt = new Date(start.getTime() - arrive * 60000);
   const going = rsvps.filter((r) => r.status === 'going');
   const out = rsvps.filter((r) => r.status === 'out');
-  const unanswered = roster.filter((a) => !rsvps.some((r) => r.athlete_id === a.id));
+  const noAnswer = roster.filter((a) => !rsvps.some((r) => r.athlete_id === a.id));
+  // A family who told us in August that they are gone has answered. Counting them as
+  // silent is what makes a coach chase people who already replied.
+  const away = noAnswer.filter((a) => awayIds.includes(a.id));
+  const unanswered = noAnswer.filter((a) => !awayIds.includes(a.id));
   const openRequests = requests.filter((r) => r.status === 'open');
   const isStaff = myRole === 'manager' || myRole === 'coach';
   const seatsOpen = offers.reduce((n, o) => n + Math.max(0, o.seats - seatsTaken(o.id)), 0);
@@ -113,7 +119,9 @@ export default function EventScreen() {
     if (current?.status === status) {
       await supabase.from('rsvps').delete().eq('event_id', id).eq('athlete_id', athleteId);
     } else {
-      const { error } = await supabase.from('rsvps').upsert({ event_id: id, athlete_id: athleteId, status, set_by: profile!.id, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
+      const { error } = await supabase
+        .from('rsvps')
+        .upsert({ event_id: id, athlete_id: athleteId, status, set_by: profile!.id, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
       if (error) toast(error.message, { tone: 'error' });
       else {
         const kid = athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid';
@@ -126,7 +134,9 @@ export default function EventScreen() {
   async function offerRide() {
     const seats = Number(offerForm.seats);
     if (!seats || seats < 1) return Alert.alert('How many seats can you take?');
-    const { error } = await supabase.from('carpool_offers').insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
+    const { error } = await supabase
+      .from('carpool_offers')
+      .insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
     if (error) return toast(error.message, { tone: 'error' });
     setOfferForm({ open: false, seats: '2', direction: 'both', note: '' });
     toast(`You're driving · ${seats} ${seats === 1 ? 'seat' : 'seats'} open`);
@@ -164,7 +174,9 @@ export default function EventScreen() {
 
   async function addSlot() {
     if (!slotForm.title.trim()) return Alert.alert('Name the slot, like "Orange slices" or "Line the field".');
-    const { error } = await supabase.from('signup_slots').insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: profile!.id });
+    const { error } = await supabase
+      .from('signup_slots')
+      .insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: profile!.id });
     if (error) return toast(error.message, { tone: 'error' });
     setSlotForm({ open: false, title: '', kind: 'snack', needed: '1' });
     toast('Slot added. The team can claim it now.');
@@ -228,9 +240,7 @@ export default function EventScreen() {
     const next = !event.cancelled;
     Alert.alert(
       next ? 'Cancel this event?' : 'Put it back on?',
-      next
-        ? 'It stays on the schedule with a line through it, and every family sees the cancellation.'
-        : 'Families see it return to the schedule.',
+      next ? 'It stays on the schedule with a line through it, and every family sees the cancellation.' : 'Families see it return to the schedule.',
       [
         { text: 'Back', style: 'cancel' },
         {
@@ -449,10 +459,11 @@ export default function EventScreen() {
               {[
                 ['Going', going.length, t.accent],
                 ['Out', out.length, t.faint],
+                ['Away', away.length, t.faint],
                 ['No answer', unanswered.length, unanswered.length ? t.signal : t.faint],
               ].map(([label, n, c]) => (
                 <View key={label as string} style={{ alignItems: 'center', flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 34, color: c as string }}>{n as number}</Text>
+                  <Text style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 30, color: c as string }}>{n as number}</Text>
                   <Text variant="label" color="faint">
                     {label as string}
                   </Text>
@@ -465,8 +476,18 @@ export default function EventScreen() {
                 <Text variant="small" color="muted" style={{ marginTop: space.md }}>
                   Still waiting on {unanswered.map((a) => a.first_name).join(', ')}.
                 </Text>
+                {away.length ? (
+                  <Text variant="small" color="faint" style={{ marginTop: 4 }}>
+                    {away.map((a) => a.first_name).join(', ')} {away.length === 1 ? 'is' : 'are'} away this week and will not be asked.
+                  </Text>
+                ) : null}
                 <View style={{ marginTop: space.md }}>
-                  <Button title={nudging ? 'Posting' : `Nudge ${unanswered.length} ${unanswered.length === 1 ? 'family' : 'families'}`} kind="secondary" onPress={nudge} loading={nudging} />
+                  <Button
+                    title={nudging ? 'Posting' : `Nudge ${unanswered.length} ${unanswered.length === 1 ? 'family' : 'families'}`}
+                    kind="secondary"
+                    onPress={nudge}
+                    loading={nudging}
+                  />
                 </View>
                 <Text variant="small" color="faint" style={{ marginTop: space.sm }}>
                   Posts one message in team chat. No one gets singled out in a text thread.
@@ -481,283 +502,28 @@ export default function EventScreen() {
         </>
       ) : null}
 
-      {/* ---------- Carpool ----------
-          Two parents, opposite jobs. Whoever is looking, the thing they have to do next
-          is the first thing on screen: your own kids' ride status, then the kids still
-          waiting, then the cars. Orange means unresolved. Green means settled. */}
-      <SectionHeader
-        title="Carpool"
-        right={
-          openRequests.length ? (
-            <Chip label={`${openRequests.length} need${openRequests.length === 1 ? 's' : ''} a ride`} tone="signal" />
-          ) : offers.length ? (
-            <Chip label={`${seatsOpen} ${seatsOpen === 1 ? 'seat' : 'seats'} open`} tone="accent" />
-          ) : (
-            <Chip label="No cars yet" />
-          )
-        }
+      <CarpoolBoard
+        profile={profile}
+        myKidsOnTeam={myKidsOnTeam}
+        offers={offers}
+        requests={requests}
+        openRequests={openRequests}
+        othersWaiting={othersWaiting}
+        iAmWaiting={iAmWaiting}
+        myOffer={myOffer}
+        seatsOpen={seatsOpen}
+        seatsTaken={seatsTaken}
+        offerForm={offerForm}
+        setOfferForm={setOfferForm}
+        requestRide={requestRide}
+        cancelRequest={cancelRequest}
+        offerRide={offerRide}
+        cancelOffer={cancelOffer}
+        takeRider={takeRider}
+        releaseRider={releaseRider}
       />
 
-      {/* 1. Your kids. One row each, and the row IS the action. */}
-      {myKidsOnTeam.length ? (
-        <Stack gap={space.sm}>
-          {myKidsOnTeam.map((k) => {
-            const req = requests.find((r) => r.athlete_id === k.id && r.status !== 'cancelled');
-            const driver = req?.offer_id ? offers.find((o) => o.id === req.offer_id) : null;
-            const matched = req?.status === 'matched';
-            const waiting = req?.status === 'open';
-            return (
-              <Card key={k.id} rail={matched ? t.accent : waiting ? t.signal : k.color} style={{ paddingLeft: space.xl }}>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <Row gap={10} style={{ flex: 1 }}>
-                    <Avatar name={k.first_name} color={k.color} size={34} />
-                    <View style={{ flex: 1 }}>
-                      <Text variant="bodyBold">{k.first_name}</Text>
-                      <Text variant="small" color={waiting ? 'signal' : matched ? 'accent' : 'muted'}>
-                        {matched
-                          ? `Riding with ${driver?.driver?.full_name?.split(' ')[0] ?? 'a parent'}`
-                          : waiting
-                            ? `Waiting on a driver${req?.created_at ? ` · asked ${formatDistanceToNowStrict(new Date(req.created_at))} ago` : ''}`
-                            : 'No ride needed'}
-                      </Text>
-                    </View>
-                  </Row>
-                  {matched ? (
-                    <Chip label="Cancel" onPress={() => cancelRequest(req!.id)} />
-                  ) : waiting ? (
-                    <Chip label="Cancel" tone="signal" onPress={() => cancelRequest(req!.id)} />
-                  ) : (
-                    <Chip label="Need a ride" tone="accent" onPress={() => requestRide(k.id)} />
-                  )}
-                </Row>
-                {matched && driver?.pickup_note ? (
-                  <Text variant="small" color="muted" style={{ marginTop: space.sm, marginLeft: 44 }}>
-                    {driver.pickup_note}
-                  </Text>
-                ) : null}
-                {matched && driver?.driver?.phone ? (
-                  <View style={{ marginTop: space.md, marginLeft: 44 }}>
-                    <Button
-                      title={`Text ${driver.driver.full_name.split(' ')[0]}`}
-                      kind="secondary"
-                      size="sm"
-                      onPress={() => Linking.openURL(`sms:${driver.driver!.phone}`)}
-                    />
-                  </View>
-                ) : null}
-                {waiting ? (
-                  <Text variant="small" color="faint" style={{ marginTop: space.sm, marginLeft: 44 }}>
-                    {seatsOpen > 0
-                      ? `${seatsOpen} open ${seatsOpen === 1 ? 'seat' : 'seats'} on this team right now.`
-                      : 'No open seats yet. Every driver on the team sees this.'}
-                  </Text>
-                ) : null}
-              </Card>
-            );
-          })}
-        </Stack>
-      ) : null}
-
-      {/* 2. Other families still waiting. This is the driver's target, so it sits above the cars. */}
-      {othersWaiting.length ? (
-        <Card style={{ marginTop: space.md, borderColor: t.signal, backgroundColor: t.signalSoft }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text variant="label" color="signal">
-              Still needs a ride
-            </Text>
-            <Text variant="small" color="signal">
-              {othersWaiting.length}
-            </Text>
-          </Row>
-          <Stack gap={space.sm} style={{ marginTop: space.md }}>
-            {othersWaiting.map((r) => (
-              <Row key={r.id} style={{ justifyContent: 'space-between' }}>
-                <Row gap={8} style={{ flex: 1 }}>
-                  <Avatar name={r.athlete?.first_name ?? '?'} color={r.athlete?.color} size={26} />
-                  <View style={{ flex: 1 }}>
-                    <Text variant="bodyMedium">
-                      {r.athlete?.first_name} {r.athlete?.last_initial ? `${r.athlete.last_initial}.` : ''}
-                    </Text>
-                    <Text variant="small" color="muted">
-                      {r.requester?.full_name?.split(' ')[0] ?? 'A parent'}
-                      {r.created_at ? ` · ${formatDistanceToNowStrict(new Date(r.created_at))} ago` : ''}
-                    </Text>
-                  </View>
-                </Row>
-                {myOffer && seatsTaken(myOffer.id) < myOffer.seats ? (
-                  <Button title="Take" size="sm" onPress={() => takeRider(r, myOffer)} />
-                ) : null}
-              </Row>
-            ))}
-          </Stack>
-          {!myOffer && !offerForm.open ? (
-            <View style={{ marginTop: space.md }}>
-              <Button title="I can drive" icon={<CarIcon color={t.accentInk} size={20} />} onPress={() => setOfferForm((f) => ({ ...f, open: true }))} />
-            </View>
-          ) : null}
-          {myOffer && seatsTaken(myOffer.id) >= myOffer.seats ? (
-            <Text variant="small" color="muted" style={{ marginTop: space.md }}>
-              Your car is full. Add a seat below if you have room.
-            </Text>
-          ) : null}
-        </Card>
-      ) : null}
-
-      {/* 3. Offering a car, when you are not the one waiting on one. */}
-      {iAmWaiting ? (
-        <Text variant="small" color="muted" style={{ marginTop: space.md }}>
-          Cancel your ride request above if you end up driving after all.
-        </Text>
-      ) : !myOffer && !offerForm.open && !othersWaiting.length ? (
-        <View style={{ marginTop: space.md }}>
-          <Button title="I can drive" kind="secondary" icon={<CarIcon color={t.ink} size={20} />} onPress={() => setOfferForm((f) => ({ ...f, open: true }))} />
-        </View>
-      ) : null}
-
-      {offerForm.open ? (
-        <Card raised style={{ marginTop: space.sm }}>
-          <Stack>
-            <Text variant="h3">Your car</Text>
-            <Row>
-              {(['both', 'to', 'from'] as RideDirection[]).map((d) => (
-                <Chip key={d} label={dirLabel[d]} selected={offerForm.direction === d} onPress={() => setOfferForm((f) => ({ ...f, direction: d }))} />
-              ))}
-            </Row>
-            <Input label="Open seats" keyboardType="number-pad" value={offerForm.seats} onChangeText={(v) => setOfferForm((f) => ({ ...f, seats: v }))} />
-            <Input label="Pickup note" placeholder="Leaving from the Starbucks on Bridgeport at 8:15" value={offerForm.note} onChangeText={(v) => setOfferForm((f) => ({ ...f, note: v }))} />
-            <Row>
-              <View style={{ flex: 1 }}>
-                <Button title="Post ride" onPress={offerRide} />
-              </View>
-              <Button title="Cancel" kind="ghost" onPress={() => setOfferForm((f) => ({ ...f, open: false }))} />
-            </Row>
-          </Stack>
-        </Card>
-      ) : null}
-
-      <Stack style={{ marginTop: space.md }} gap={space.sm}>
-        {offers.map((o) => {
-          const riders = requests.filter((r) => r.offer_id === o.id && r.status === 'matched');
-          const isMine = o.driver_id === profile?.id;
-          const full = riders.length >= o.seats;
-          return (
-            <Card key={o.id} rail={isMine ? t.accent : undefined} style={{ paddingLeft: isMine ? space.xl : space.lg }}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Row>
-                  <Avatar name={o.driver?.full_name || '?'} />
-                  <View>
-                    <Text variant="bodyBold">{isMine ? 'You' : o.driver?.full_name || 'Driver'}</Text>
-                    <Text variant="small" color="muted">
-                      {dirLabel[o.direction]} · {o.seats - riders.length} of {o.seats} seats open
-                    </Text>
-                  </View>
-                </Row>
-                {isMine ? <Chip label="Cancel ride" onPress={() => cancelOffer(o.id)} /> : full ? <Chip label="Full" /> : null}
-              </Row>
-              {o.pickup_note ? (
-                <Text variant="small" style={{ marginTop: space.sm }}>
-                  {o.pickup_note}
-                </Text>
-              ) : null}
-              {!isMine && o.driver?.phone ? (
-                <Pressable onPress={() => Linking.openURL(`sms:${o.driver!.phone}`)}>
-                  <Text variant="small" color="accent" style={{ marginTop: 4 }}>
-                    Text {o.driver.full_name.split(' ')[0]}
-                  </Text>
-                </Pressable>
-              ) : null}
-              {riders.length ? (
-                <View style={{ marginTop: space.md, gap: space.sm }}>
-                  <Divider />
-                  {riders.map((r) => (
-                    <Row key={r.id} style={{ justifyContent: 'space-between' }}>
-                      <Row gap={6}>
-                        <Avatar name={r.athlete?.first_name ?? '?'} color={r.athlete?.color} size={22} />
-                        <Text variant="small">
-                          {r.athlete?.first_name} {r.athlete?.last_initial ? r.athlete.last_initial + '.' : ''}
-                          <Text variant="small" color="muted">
-                            {'  '}· {r.requester?.full_name?.split(' ')[0]}
-                          </Text>
-                        </Text>
-                      </Row>
-                      {isMine || r.requested_by === profile?.id ? <Chip label="Release" onPress={() => releaseRider(r)} /> : null}
-                    </Row>
-                  ))}
-                </View>
-              ) : null}
-              {isMine && !full && openRequests.length ? (
-                <View style={{ marginTop: space.md, gap: space.sm }}>
-                  <Divider />
-                  <Text variant="label" color="faint">
-                    Pick up
-                  </Text>
-                  <Row style={{ flexWrap: 'wrap' }}>
-                    {openRequests.map((r) => (
-                      <Chip key={r.id} label={`+ ${r.athlete?.first_name}`} tone="signal" onPress={() => takeRider(r, o)} />
-                    ))}
-                  </Row>
-                </View>
-              ) : null}
-            </Card>
-          );
-        })}
-        {offers.length === 0 && !offerForm.open ? (
-          <Text variant="small" color="muted">
-            No one has offered a ride yet. Drivers see who needs a seat and tap to pick them up.
-          </Text>
-        ) : null}
-      </Stack>
-
-      {/* ---------- Signups ---------- */}
-      <SectionHeader title="Snacks and volunteers" right={<Chip label="+ Add slot" tone="accent" onPress={() => setSlotForm((f) => ({ ...f, open: true }))} />} />
-      {slotForm.open ? (
-        <Card raised style={{ marginBottom: space.sm }}>
-          <Stack>
-            <Row>
-              {(['snack', 'volunteer', 'equipment'] as SignupSlot['kind'][]).map((k) => (
-                <Chip key={k} label={k[0].toUpperCase() + k.slice(1)} selected={slotForm.kind === k} onPress={() => setSlotForm((f) => ({ ...f, kind: k }))} />
-              ))}
-            </Row>
-            <Input placeholder={slotForm.kind === 'snack' ? 'Orange slices and water' : slotForm.kind === 'volunteer' ? 'Line judge' : 'Bring the pop-up goals'} value={slotForm.title} onChangeText={(v) => setSlotForm((f) => ({ ...f, title: v }))} />
-            <Input label="People needed" keyboardType="number-pad" value={slotForm.needed} onChangeText={(v) => setSlotForm((f) => ({ ...f, needed: v }))} />
-            <Row>
-              <View style={{ flex: 1 }}>
-                <Button title="Add slot" onPress={addSlot} />
-              </View>
-              <Button title="Cancel" kind="ghost" onPress={() => setSlotForm((f) => ({ ...f, open: false }))} />
-            </Row>
-          </Stack>
-        </Card>
-      ) : null}
-      <Stack gap={space.sm}>
-        {slots.length === 0 && !slotForm.open ? (
-          <Text variant="small" color="muted">
-            No slots yet. Anyone on the team can add one. Only the person who signs up gets reminded.
-          </Text>
-        ) : null}
-        {slots.map((s) => {
-          const claims = s.claims ?? [];
-          const mine = claims.some((c) => c.profile_id === profile?.id);
-          const filled = claims.length >= s.needed;
-          return (
-            <Card key={s.id}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Row style={{ flex: 1 }} gap={10}>
-                  <SnackIcon color={filled ? t.accent : t.gold} size={20} />
-                  <View style={{ flex: 1 }}>
-                    <Text variant="bodyBold">{s.title}</Text>
-                    <Text variant="small" color="muted">
-                      {claims.length} of {s.needed} covered
-                      {claims.length ? ` · ${claims.map((c) => c.profile?.full_name?.split(' ')[0]).join(', ')}` : ''}
-                    </Text>
-                  </View>
-                </Row>
-                <Chip label={mine ? "I'm out" : filled ? 'Covered' : "I've got it"} tone={mine ? 'neutral' : filled ? 'accent' : 'gold'} onPress={mine || !filled ? () => claim(s) : undefined} />
-              </Row>
-            </Card>
-          );
-        })}
-      </Stack>
+      <SignupBoard profile={profile} slots={slots} slotForm={slotForm} setSlotForm={setSlotForm} addSlot={addSlot} claim={claim} />
     </Screen>
   );
 }

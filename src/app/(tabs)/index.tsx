@@ -1,4 +1,4 @@
-import { addMonths, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
+import { addMonths, format, isSameDay, isToday, startOfDay } from 'date-fns';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
@@ -8,28 +8,12 @@ import { EventCard } from '@/components/event-card';
 import { BellIcon } from '@/components/icons';
 import { MonthGrid } from '@/components/month-grid';
 import { Avatar, Button, Chip, Empty, Glow, Loading, Row, Segments, Stack, Text } from '@/components/ui';
+import { headline } from '@/lib/headline';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { MyEvent } from '@/lib/types';
 import { useSession } from '@/providers/session';
-
-function headline(events: MyEvent[]): { big: string; sub: string } {
-  const upcoming = events.filter((e) => !e.cancelled && new Date(e.starts_at) >= startOfDay(new Date()));
-  const next = upcoming[0];
-  if (!next) return { big: 'Quiet week.', sub: 'Nothing on the calendar coming up.' };
-  const rides = upcoming.filter((e) => e.my_ride_status === 'needs_ride').length;
-  const unanswered = upcoming.reduce((n, e) => n + e.athlete_ids.filter((id) => !e.my_rsvps?.[id]).length, 0);
-  const nextGame = upcoming.find((e) => e.type === 'game');
-  const when = (d: Date) => (isToday(d) ? 'today.' : isTomorrow(d) ? 'tomorrow.' : `${format(d, 'EEEE')}.`);
-  const big = nextGame
-    ? `Game day\n${when(new Date(nextGame.starts_at))}`
-    : `${next.type === 'practice' ? 'Practice' : 'Next up'}\n${when(new Date(next.starts_at))}`;
-  const parts = [`${upcoming.length} ${upcoming.length === 1 ? 'event' : 'events'} coming up`];
-  if (rides) parts.push(`${rides} still ${rides === 1 ? 'needs' : 'need'} a ride`);
-  if (unanswered) parts.push(`${unanswered} RSVP${unanswered === 1 ? '' : 's'} waiting on you`);
-  return { big, sub: parts.join('. ') + '.' };
-}
 
 export default function ThisWeek() {
   const { profile, athletes } = useSession();
@@ -89,10 +73,27 @@ export default function ThisWeek() {
             Huddle Up
           </Text>
           <Row gap={space.md}>
-            <Pressable onPress={() => router.push('/activity')} accessibilityLabel={news ? `What changed, ${news} new` : 'What changed'} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable
+              onPress={() => router.push('/activity')}
+              accessibilityLabel={news ? `What changed, ${news} new` : 'What changed'}
+              style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
               <BellIcon color={news ? t.signal : t.muted} size={22} />
               {news ? (
-                <View style={{ position: 'absolute', top: 6, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: t.signal, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: t.bg }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 4,
+                    minWidth: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    paddingHorizontal: 4,
+                    backgroundColor: t.signal,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: t.bg,
+                  }}>
                   <Text style={{ fontSize: 10, lineHeight: 12, color: t.accentInk, fontFamily: fonts.displayBold }}>{news > 9 ? '9+' : news}</Text>
                 </View>
               ) : null}
@@ -200,7 +201,7 @@ export default function ThisWeek() {
                 </Text>
                 <Stack gap={space.md}>
                   {g.items.map((ev) => (
-                    <EventCard key={ev.event_id} ev={ev} athletes={athletes} hero={ev.event_id === heroId} onChanged={load} />
+                    <EventCard key={ev.event_id} ev={ev} athletes={athletes} hero={ev.event_id === heroId} />
                   ))}
                 </Stack>
               </View>

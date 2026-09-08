@@ -1,10 +1,11 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Animated, Image, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { BallIcon, HomeIcon } from '@/components/icons';
 import { Avatar, BackLink, Card, Chip, Divider, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { useAnimatedValue } from '@/lib/animation';
 import { STATS, statDef, summaryLine } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
@@ -40,7 +41,7 @@ export default function PlayerCard() {
   const [rows, setRows] = useState<CardRow[] | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [flipped, setFlipped] = useState(false);
-  const spin = useRef(new Animated.Value(0)).current;
+  const spin = useAnimatedValue(0);
 
   const load = useCallback(async () => {
     const [{ data, error }, { data: media }] = await Promise.all([
@@ -48,10 +49,13 @@ export default function PlayerCard() {
       supabase.rpc('athlete_media', { p_athlete_id: id, p_limit: 24 }),
     ]);
     if (error) toast(error.message, { tone: 'error' });
-    setRows((data as CardRow[]) ?? []);
+    setRows(data ?? []);
     const list = (media as Shot[]) ?? [];
     if (list.length) {
-      const { data: signed } = await supabase.storage.from('team-media').createSignedUrls(list.map((m) => m.storage_path), 3600);
+      const { data: signed } = await supabase.storage.from('team-media').createSignedUrls(
+        list.map((m) => m.storage_path),
+        3600,
+      );
       const map = Object.fromEntries((signed ?? []).filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string]));
       setShots(list.map((m) => ({ ...m, url: map[m.storage_path] })));
     } else {
@@ -162,11 +166,7 @@ export default function PlayerCard() {
                   {kid.birth_year ? ` · ${kid.birth_year}` : ''}
                 </Text>
               </View>
-              {current ? (
-                <Chip label={summaryLine(current.sport, current.totals)} tone="accent" />
-              ) : (
-                <Chip label="No games scored yet" />
-              )}
+              {current ? <Chip label={summaryLine(current.sport, current.totals)} tone="accent" /> : <Chip label="No games scored yet" />}
             </View>
             <Row style={{ justifyContent: 'center', paddingBottom: space.md }}>
               <Text variant="small" color="faint">
@@ -223,7 +223,7 @@ export default function PlayerCard() {
         <Card>
           <Text variant="bodyMedium">No stats yet</Text>
           <Text variant="small" color="muted" style={{ marginTop: 4 }}>
-            Stats appear here the first time a parent keeps score for one of {kid.first_name}'s games. Open a game and tap Keep score.
+            Stats appear here the first time a parent keeps score for one of {kid.first_name}’s games. Open a game and tap Keep score.
           </Text>
         </Card>
       ) : null}
@@ -281,7 +281,8 @@ export default function PlayerCard() {
           <Chip label="Soon" tone="gold" />
         </Row>
         <Text variant="small" color="muted">
-          The current season is free forever. Family Plus keeps every season {kid.first_name} ever plays, adds photos and clips to this card, and gives grandparents their own login. $59 a year for the whole household.
+          The current season is free forever. Family Plus keeps every season {kid.first_name} ever plays, adds photos and clips to this card, and gives grandparents their own
+          login. $59 a year for the whole household.
         </Text>
         <Text variant="small" color="faint">
           Not for sale yet. Nothing here is behind a paywall today.

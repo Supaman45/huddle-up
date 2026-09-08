@@ -1,235 +1,66 @@
-export type Sport = 'soccer' | 'basketball' | 'other';
-export type EventType = 'game' | 'practice' | 'tournament' | 'other';
-export type RideDirection = 'to' | 'from' | 'both';
-export type MediaConsent = 'household' | 'team' | 'shareable';
-export type TeamRole = 'manager' | 'coach' | 'parent';
-export type RsvpStatus = 'going' | 'out' | 'maybe';
+// App-facing types. Everything that mirrors a table or an RPC is DERIVED from the
+// generated schema, so a migration that renames a column breaks the build instead of
+// producing an undefined at a field on a Saturday morning. Only shapes the database
+// does not describe (joined rows, the RSVP map inside my_events) are written by hand.
+import type { Enums, FnReturns, Tables } from '@/lib/database.types';
 
-export interface Profile {
-  id: string;
-  full_name: string;
-  phone: string | null;
-  email: string | null;
-  avatar_url: string | null;
-}
+export type Sport = Enums<'sport'>;
+export type EventType = Enums<'event_type'>;
+export type RideDirection = Enums<'ride_direction'>;
+export type MediaConsent = Enums<'media_consent'>;
+export type TeamRole = Enums<'team_role'>;
+export type HouseholdRole = Enums<'household_role'>;
+export type RsvpStatus = Enums<'rsvp_status'>;
+export type RequestStatus = Enums<'request_status'>;
+export type SlotKind = Enums<'slot_kind'>;
+export type GameStatus = Enums<'game_status'>;
+export type ActivityKind = Enums<'activity_kind'>;
 
-export interface Household {
-  id: string;
-  name: string;
-}
+export type Profile = Tables<'profiles'>;
+export type Household = Tables<'households'>;
+export type Athlete = Tables<'athletes'>;
+export type Team = Tables<'teams'>;
+export type Event = Tables<'events'>;
+export type Game = Tables<'games'>;
+export type AwayRange = Tables<'athlete_away'>;
 
-export interface Athlete {
-  id: string;
-  household_id: string;
-  first_name: string;
-  last_initial: string;
-  birth_year: number | null;
-  color: string;
-  media_consent: MediaConsent;
-}
+// Rows that arrive with a joined relation. The join is a PostgREST select string, not
+// something the schema types know about, so the extra fields are declared here.
+export type TeamMember = Tables<'team_members'> & { profile?: Profile };
+export type CarpoolOffer = Tables<'carpool_offers'> & { driver?: Profile };
+export type CarpoolRequest = Tables<'carpool_requests'> & { athlete?: Athlete; requester?: Profile };
+export type SignupClaim = Tables<'signup_claims'> & { profile?: Profile };
+export type SignupSlot = Tables<'signup_slots'> & { claims?: SignupClaim[] };
+export type Rsvp = Tables<'rsvps'> & { athlete?: Athlete };
+export type StatEvent = Tables<'stat_events'> & { athlete?: Athlete };
+export type Message = Tables<'messages'> & { author?: Profile; reactions?: { emoji: string; profile_id: string }[] };
 
-export interface Team {
-  id: string;
-  name: string;
-  sport: Sport;
-  season: string;
-  color: string;
-  join_code: string;
-  timezone: string;
-  ics_url: string | null;
-  ics_last_synced_at: string | null;
-  ics_last_error: string | null;
-  default_arrive_minutes: number;
-  /** Team crest in the team-media bucket under <team_id>/brand/. Staff only. */
-  logo_path: string | null;
-  /** Overrides the app accent inside this team's screens when set. */
-  accent_color: string | null;
-}
+// RPC result rows.
+export type CardRow = FnReturns<'athlete_card'>;
+export type ActivityRow = FnReturns<'my_activity'>;
+export type TeamRecord = FnReturns<'team_record'>;
+export type LeaderRow = FnReturns<'team_leaders'>;
 
-export interface TeamMember {
-  team_id: string;
-  profile_id: string;
-  role: TeamRole;
-  profile?: Profile;
-}
-
-export interface Event {
-  id: string;
-  team_id: string;
-  title: string;
-  type: EventType;
-  starts_at: string;
-  ends_at: string | null;
-  location_name: string | null;
-  location_address: string | null;
-  notes: string | null;
-  arrive_minutes: number | null;
-  source: 'manual' | 'ics';
-  cancelled: boolean;
-}
-
-export interface MyEvent {
-  event_id: string;
-  team_id: string;
-  team_name: string;
-  team_color: string;
-  sport: Sport;
-  title: string;
-  type: EventType;
-  starts_at: string;
-  ends_at: string | null;
-  location_name: string | null;
-  location_address: string | null;
-  cancelled: boolean;
-  athlete_ids: string[];
-  offers: number;
-  open_requests: number;
-  open_slots: number;
-  my_ride_status: 'driving' | 'matched' | 'needs_ride' | null;
-  going: number;
-  out_count: number;
-  unanswered: number;
+/**
+ * The generated types describe a function's OUT columns as non-null, which Postgres does
+ * not guarantee: the ride fields are null unless a ride is matched, and the car fields are
+ * null unless this parent is driving. Narrowing them here is what stops a crash at the
+ * point of use. `my_rsvps` is jsonb, which the generator calls Json.
+ */
+export type MyEvent = Omit<
+  FnReturns<'my_events'>,
+  'my_rsvps' | 'my_ride_status' | 'ride_driver' | 'ride_driver_phone' | 'ride_note' | 'my_seats_open' | 'my_riders' | 'location_name' | 'location_address' | 'ends_at'
+> & {
   my_rsvps: Record<string, RsvpStatus>;
-  /** First name of the parent driving my kid, when a ride is matched. */
+  my_ride_status: 'driving' | 'matched' | 'needs_ride' | null;
+  ends_at: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  /** Set only when my_ride_status is 'matched'. */
   ride_driver: string | null;
   ride_driver_phone: string | null;
   ride_note: string | null;
-  /** Unclaimed seats across every car offered for this event. */
-  seats_open: number;
-  /** Unclaimed seats in my own car, when I am driving. */
+  /** Set only when my_ride_status is 'driving'. */
   my_seats_open: number | null;
   my_riders: number | null;
-}
-
-export interface CarpoolOffer {
-  id: string;
-  event_id: string;
-  driver_id: string;
-  direction: RideDirection;
-  seats: number;
-  pickup_note: string | null;
-  driver?: Profile;
-}
-
-export interface CarpoolRequest {
-  id: string;
-  event_id: string;
-  athlete_id: string;
-  requested_by: string;
-  direction: RideDirection;
-  offer_id: string | null;
-  status: 'open' | 'matched' | 'cancelled';
-  note: string | null;
-  created_at?: string;
-  athlete?: Athlete;
-  requester?: Profile;
-}
-
-export interface SignupSlot {
-  id: string;
-  event_id: string;
-  kind: 'snack' | 'volunteer' | 'equipment';
-  title: string;
-  needed: number;
-  created_by: string;
-  claims?: SignupClaim[];
-}
-
-export interface SignupClaim {
-  id: string;
-  slot_id: string;
-  profile_id: string;
-  note: string | null;
-  profile?: Profile;
-}
-
-export interface Rsvp {
-  event_id: string;
-  athlete_id: string;
-  status: RsvpStatus;
-  set_by: string;
-  note: string | null;
-  athlete?: Athlete;
-}
-
-export interface Message {
-  id: string;
-  team_id: string;
-  author_id: string;
-  body: string | null;
-  image_path: string | null;
-  event_id: string | null;
-  created_at: string;
-  author?: Profile;
-  reactions?: { emoji: string; profile_id: string }[];
-}
-
-export type GameStatus = 'scheduled' | 'live' | 'final';
-
-export interface Game {
-  id: string;
-  event_id: string;
-  team_id: string;
-  opponent_name: string;
-  opponent_team_id: string | null;
-  is_home: boolean;
-  status: GameStatus;
-  our_score: number;
-  their_score: number;
-  period: number;
-  scorekeeper_id: string | null;
-  started_at: string | null;
-  ended_at: string | null;
-}
-
-export interface StatEvent {
-  id: string;
-  game_id: string;
-  athlete_id: string | null;
-  stat_type: string;
-  points: number;
-  period: number;
-  recorded_by: string;
-  created_at: string;
-  athlete?: Athlete;
-}
-
-export interface CardRow {
-  first_name: string;
-  last_initial: string;
-  color: string;
-  birth_year: number | null;
-  team_id: string | null;
-  team_name: string | null;
-  sport: Sport | null;
-  season: string | null;
-  games: number | null;
-  stat_type: string | null;
-  tally: number | null;
-  points: number | null;
-  is_current: boolean | null;
-}
-
-export type ActivityKind =
-  | 'event_added'
-  | 'event_changed'
-  | 'event_cancelled'
-  | 'ride_needed'
-  | 'ride_filled'
-  | 'slot_claimed'
-  | 'game_final';
-
-export interface ActivityRow {
-  id: string;
-  team_id: string;
-  team_name: string;
-  team_color: string;
-  event_id: string | null;
-  kind: ActivityKind;
-  title: string;
-  body: string;
-  actor_id: string | null;
-  actor_name: string;
-  created_at: string;
-  is_new: boolean;
-}
+};

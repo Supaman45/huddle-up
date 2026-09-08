@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { TeamCrest } from '@/components/team-crest';
-import { Avatar, Button, Empty, ListRow, Loading, Row, Screen, Stack, Text } from '@/components/ui';
+import { Button, Empty, ListRow, Loading, Row, Screen, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel } from '@/lib/theme';
 import type { Team, TeamRole } from '@/lib/types';

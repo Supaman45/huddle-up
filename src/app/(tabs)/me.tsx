@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Switch, View } from 'react-native';
 
 import { Button, Card, Divider, Input, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import { useSession } from '@/providers/session';
+import { useToast } from '@/providers/toast';
 
 interface Prefs {
   reminders: boolean;
@@ -13,21 +14,48 @@ interface Prefs {
   signups: boolean;
 }
 
+const DEFAULT_PREFS: Prefs = { reminders: true, schedule_changes: true, carpool: true, signups: true };
+
 export default function Me() {
   const { profile, refresh, signOut } = useSession();
+  const toast = useToast();
   const t = useTheme();
   const [name, setName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
-  const [prefs, setPrefs] = useState<Prefs>({ reminders: true, schedule_changes: true, carpool: true, signups: true });
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
+
+  // The household-wide row is the one with no athlete and no event type: "my defaults".
+  const loadPrefs = useCallback(async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('notification_prefs')
+      .select('reminders, schedule_changes, carpool, signups')
+      .eq('profile_id', profile.id)
+      .is('athlete_id', null)
+      .is('event_type', null)
+      .maybeSingle();
+    if (data) setPrefs({ reminders: data.reminders, schedule_changes: data.schedule_changes, carpool: data.carpool, signups: data.signups });
+  }, [profile]);
+
+  useEffect(() => {
+    loadPrefs();
+  }, [loadPrefs]);
 
   async function save() {
     setSaving(true);
-    const { error } = await supabase.from('profiles').update({ full_name: name.trim(), phone: phone.trim() || null }).eq('id', profile!.id);
-    await supabase.from('notification_prefs').upsert({ profile_id: profile!.id, athlete_id: null, event_type: null, ...prefs }, { onConflict: 'profile_id,athlete_id,event_type' });
+    const [{ error: profileErr }, { error: prefsErr }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .update({ full_name: name.trim(), phone: phone.trim() || null })
+        .eq('id', profile!.id),
+      supabase.from('notification_prefs').upsert({ profile_id: profile!.id, athlete_id: null, event_type: null, ...prefs }, { onConflict: 'profile_id,athlete_id,event_type' }),
+    ]);
     setSaving(false);
-    if (error) Alert.alert('Could not save', error.message);
-    else await refresh();
+    const failure = profileErr ?? prefsErr;
+    if (failure) return Alert.alert('Could not save', failure.message);
+    toast('Saved');
+    await refresh();
   }
 
   function toggle(k: keyof Prefs) {

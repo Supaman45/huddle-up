@@ -1,0 +1,9 @@
+-- Applied live via MCP as migration `notification_prefs_allow_defaults`.
+-- The Settings screen writes one row per person meaning "these are my defaults", with a
+-- null athlete and null event type. The old primary key made both columns NOT NULL, so
+-- that upsert had been failing silently since launch. Found by typing the Supabase client
+-- against the generated schema.
+--
+-- A primary key cannot use a NULLS NOT DISTINCT index, so identity moved to a surrogate id
+-- and the real rule lives in the unique index notification_prefs_key, which is also what
+-- on_conflict targets from the client.

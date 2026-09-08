@@ -35,7 +35,7 @@ export function MonthGrid({
     const colors: string[] = [];
     for (const e of onDay) {
       const kid = athletes.find((a) => e.athlete_ids.includes(a.id));
-      const c = e.my_ride_status === 'needs_ride' || e.open_requests > 0 ? t.signal : kid?.color ?? e.team_color;
+      const c = e.my_ride_status === 'needs_ride' || e.open_requests > 0 ? t.signal : (kid?.color ?? e.team_color);
       if (!colors.includes(c)) colors.push(c);
       if (colors.length >= 3) break;
     }

@@ -42,10 +42,14 @@ export default function Scorekeeper() {
       supabase.from('games').select('*').eq('event_id', id).maybeSingle(),
     ]);
     setTeam(tm as Team);
-    setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete).sort((a, b) => a.first_name.localeCompare(b.first_name)));
+    setRoster((ta ?? []).map((r) => r.athlete).sort((a, b) => a.first_name.localeCompare(b.first_name)));
     setGame((g as Game) ?? null);
     if (g) {
-      const { data: se } = await supabase.from('stat_events').select('*, athlete:athletes(*)').eq('game_id', (g as Game).id).order('created_at', { ascending: false });
+      const { data: se } = await supabase
+        .from('stat_events')
+        .select('*, athlete:athletes(*)')
+        .eq('game_id', (g as Game).id)
+        .order('created_at', { ascending: false });
       setStats((se as StatEvent[]) ?? []);
     }
     if (!opponent && (ev as Event).title) {
@@ -93,7 +97,7 @@ export default function Scorekeeper() {
     const { data, error } = await supabase.rpc('start_game', { p_event_id: id, p_opponent: opponent.trim(), p_is_home: isHome });
     setBusy(false);
     if (error) return toast(error.message, { tone: 'error' });
-    toast("You're keeping score. Tap a player, then a stat.");
+    toast('You’re keeping score. Tap a player, then a stat.');
     await load();
     void data;
   }
@@ -175,7 +179,7 @@ export default function Scorekeeper() {
           Keep score?
         </Text>
         <Text color="muted" style={{ marginTop: 6 }}>
-          One parent taps, everyone watching gets the score live, and every tap lands on your kid's player card. Free.
+          One parent taps, everyone watching gets the score live, and every tap lands on your kid’s player card. Free.
         </Text>
         <Stack style={{ marginTop: space.xl }}>
           <Input label="Opponent" placeholder="Red Robin" value={opponent} onChangeText={setOpponent} />
@@ -204,7 +208,15 @@ export default function Scorekeeper() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {/* Scoreboard */}
-      <View style={{ paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, paddingBottom: space.md, backgroundColor: t.surface, borderBottomWidth: 1, borderColor: t.lineStrong }}>
+      <View
+        style={{
+          paddingTop: insets.top + space.sm,
+          paddingHorizontal: space.lg,
+          paddingBottom: space.md,
+          backgroundColor: t.surface,
+          borderBottomWidth: 1,
+          borderColor: t.lineStrong,
+        }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <BackLink label="Done" />
           <Row gap={6}>
@@ -302,9 +314,7 @@ export default function Scorekeeper() {
                   </Pressable>
                 );
               })}
-              {roster.length === 0 ? (
-                <Text color="muted">No players on the roster yet. Add them on the team page and they show up here.</Text>
-              ) : null}
+              {roster.length === 0 ? <Text color="muted">No players on the roster yet. Add them on the team page and they show up here.</Text> : null}
             </View>
 
             <Text variant="label" color="faint" style={{ marginTop: space.xl, marginBottom: space.sm }}>
@@ -314,7 +324,20 @@ export default function Scorekeeper() {
           </ScrollView>
 
           {/* Stat bar pinned to the thumb */}
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: insets.bottom + space.md, backgroundColor: t.surfaceAlt, borderTopWidth: 1, borderColor: t.lineStrong, gap: space.sm }}>
+          <View
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingHorizontal: space.md,
+              paddingTop: space.md,
+              paddingBottom: insets.bottom + space.md,
+              backgroundColor: t.surfaceAlt,
+              borderTopWidth: 1,
+              borderColor: t.lineStrong,
+              gap: space.sm,
+            }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
               {defs.map((d) => (
                 <Pressable
@@ -341,7 +364,14 @@ export default function Scorekeeper() {
                 <Button title="Undo last" kind="secondary" size="sm" disabled={!stats.length} onPress={undo} />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title={game.status === 'final' ? 'Saved' : 'End game'} kind="ghost" size="sm" icon={<CheckIcon color={t.accent} size={16} />} onPress={finish} disabled={game.status === 'final'} />
+                <Button
+                  title={game.status === 'final' ? 'Saved' : 'End game'}
+                  kind="ghost"
+                  size="sm"
+                  icon={<CheckIcon color={t.accent} size={16} />}
+                  onPress={finish}
+                  disabled={game.status === 'final'}
+                />
               </View>
             </Row>
           </View>
@@ -366,8 +396,7 @@ function RecentFeed({ stats, sport }: { stats: StatEvent[]; sport: 'soccer' | 'b
         <Row key={s.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderColor: t.line }}>
           <Avatar name={s.athlete?.first_name ?? '?'} color={s.athlete?.color} size={26} />
           <Text variant="bodyMedium" style={{ flex: 1 }}>
-            {s.athlete?.first_name ?? 'Team'}{' '}
-            <Text color="muted">{statDef(sport, s.stat_type)?.label ?? s.stat_type}</Text>
+            {s.athlete?.first_name ?? 'Team'} <Text color="muted">{statDef(sport, s.stat_type)?.label ?? s.stat_type}</Text>
           </Text>
           <Text variant="mono" color="faint">
             {timeLabel(new Date(s.created_at))}

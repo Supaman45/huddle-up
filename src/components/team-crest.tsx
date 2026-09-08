@@ -9,25 +9,25 @@ const cache = new Map<string, string>();
 
 /** Signed URLs for the private team-media bucket, cached for the life of the app session. */
 export function useSignedUrl(path: string | null | undefined, seconds = 3600) {
-  const [url, setUrl] = useState<string | null>(path ? cache.get(path) ?? null : null);
+  // The cached value is derived, not stored: no state to set when the path changes or
+  // clears, so nothing renders twice and the effect only ever runs for a real miss.
+  const [fetched, setFetched] = useState<string | null>(null);
   useEffect(() => {
+    if (!path || cache.has(path)) return;
     let alive = true;
-    if (!path) return setUrl(null);
-    const hit = cache.get(path);
-    if (hit) return setUrl(hit);
     supabase.storage
       .from('team-media')
       .createSignedUrl(path, seconds)
       .then(({ data }) => {
         if (!alive || !data?.signedUrl) return;
         cache.set(path, data.signedUrl);
-        setUrl(data.signedUrl);
+        setFetched(data.signedUrl);
       });
     return () => {
       alive = false;
     };
   }, [path, seconds]);
-  return url;
+  return path ? (cache.get(path) ?? fetched) : null;
 }
 
 export function clearCrestCache(path?: string) {

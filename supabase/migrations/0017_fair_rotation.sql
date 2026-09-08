@@ -1,0 +1,10 @@
+-- Applied live via MCP as migration `fair_signup_rotation`.
+--
+-- rotate_signups(team, kind, title, from, to) assigns a season of snack or volunteer turns
+-- evenly, staff only. Fairness is: fewest turns so far wins, ties broken by who has gone
+-- least recently, then by md5(profile_id || team_id) so the order is not alphabetical --
+-- otherwise the same family opens every season.
+--
+-- Turns already taken count toward the tally, so running it mid-season tops up rather than
+-- starting over, and events that already have a slot of that kind are skipped, so running
+-- it twice is a no-op rather than a double booking.

@@ -1,0 +1,11 @@
+-- Applied live via MCP as migrations `away_dates` and `my_events_away_aware`.
+--
+-- athlete_away(athlete_id, starts_on, ends_on, reason): a family says once, in August,
+-- that the kid is gone the last week of October. The household writes; anyone who can see
+-- the athlete reads, because a coach planning Saturday needs to know who is gone.
+--
+-- away_athletes(event_id) resolves a range against the TEAM's timezone: a range is a set of
+-- calendar days where the family is, not a pair of instants in UTC.
+--
+-- my_events.unanswered now excludes anyone with a covering range, and my_events returns
+-- away_ids for this parent's own kids. A family who already answered is not a chase.

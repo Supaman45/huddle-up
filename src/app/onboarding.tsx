@@ -75,12 +75,7 @@ export default function Onboarding() {
         <Spacer h={space.xl} />
         <Stack>
           <Input label="Your name" placeholder="Seri Strong" value={name} onChangeText={setName} autoComplete="name" />
-          <Input
-            label="Household name (optional)"
-            placeholder="Strong family"
-            value={householdName}
-            onChangeText={setHouseholdName}
-          />
+          <Input label="Household name (optional)" placeholder="Strong family" value={householdName} onChangeText={setHouseholdName} />
         </Stack>
         <Spacer h={space.xl} />
         <Text variant="label" color="muted">
@@ -122,7 +117,11 @@ export default function Onboarding() {
             </Card>
           ))}
           <Row>
-            <Chip label="+ Add another kid" tone="accent" onPress={() => setKids((k) => [...k, { first_name: '', last_initial: '', birth_year: '', color: teamColors[k.length % teamColors.length] }])} />
+            <Chip
+              label="+ Add another kid"
+              tone="accent"
+              onPress={() => setKids((k) => [...k, { first_name: '', last_initial: '', birth_year: '', color: teamColors[k.length % teamColors.length] }])}
+            />
           </Row>
         </Stack>
         <Spacer h={space.xl} />

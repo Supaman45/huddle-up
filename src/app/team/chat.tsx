@@ -36,7 +36,12 @@ export default function TeamChat() {
   const load = useCallback(async () => {
     const [{ data: tm }, { data: ms }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
-      supabase.from('messages').select('*, author:profiles(*), reactions:message_reactions(emoji, profile_id)').eq('team_id', id).order('created_at', { ascending: false }).limit(200),
+      supabase
+        .from('messages')
+        .select('*, author:profiles(*), reactions:message_reactions(emoji, profile_id)')
+        .eq('team_id', id)
+        .order('created_at', { ascending: false })
+        .limit(200),
     ]);
     setTeam(tm as Team);
     const rows = (ms as Message[]) ?? [];
@@ -111,9 +116,7 @@ export default function TeamChat() {
             </Text>
           ) : null}
           <Pressable
-            onLongPress={() =>
-              Alert.alert('React', '', [...REACTIONS.map((e) => ({ text: e, onPress: () => react(m, e) })), { text: 'Cancel', style: 'cancel' as const }])
-            }
+            onLongPress={() => Alert.alert('React', '', [...REACTIONS.map((e) => ({ text: e, onPress: () => react(m, e) })), { text: 'Cancel', style: 'cancel' as const }])}
             style={{
               backgroundColor: mine ? t.accent : t.surfaceAlt,
               borderRadius: radius.lg,
@@ -128,7 +131,10 @@ export default function TeamChat() {
           </Pressable>
           <Row gap={4} style={{ justifyContent: mine ? 'flex-end' : 'flex-start' }}>
             {Object.entries(counts).map(([e, n]) => (
-              <Pressable key={e} onPress={() => react(m, e)} style={{ backgroundColor: t.surface, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: t.line }}>
+              <Pressable
+                key={e}
+                onPress={() => react(m, e)}
+                style={{ backgroundColor: t.surface, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: t.line }}>
                 <Text variant="small">
                   {e} {n > 1 ? n : ''}
                 </Text>
@@ -180,8 +186,21 @@ export default function TeamChat() {
           }
         />
       )}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm, padding: space.md, paddingBottom: insets.bottom + space.md, borderTopWidth: 1, borderColor: t.line, backgroundColor: t.bg }}>
-        <Pressable onPress={pickPhoto} disabled={sending} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          gap: space.sm,
+          padding: space.md,
+          paddingBottom: insets.bottom + space.md,
+          borderTopWidth: 1,
+          borderColor: t.line,
+          backgroundColor: t.bg,
+        }}>
+        <Pressable
+          onPress={pickPhoto}
+          disabled={sending}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
           <CameraIcon color={t.accent} />
         </Pressable>
         <TextInput
@@ -190,9 +209,25 @@ export default function TeamChat() {
           placeholder="Message the team"
           placeholderTextColor={t.faint}
           multiline
-          style={{ flex: 1, minHeight: 44, maxHeight: 120, backgroundColor: t.surface, borderRadius: 22, borderWidth: 1, borderColor: t.line, paddingHorizontal: 16, paddingVertical: 11, color: t.ink, fontFamily: fonts.body, fontSize: 16 }}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            maxHeight: 120,
+            backgroundColor: t.surface,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: t.line,
+            paddingHorizontal: 16,
+            paddingVertical: 11,
+            color: t.ink,
+            fontFamily: fonts.body,
+            fontSize: 16,
+          }}
         />
-        <Pressable onPress={() => send()} disabled={sending || !text.trim()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: text.trim() ? t.accent : t.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable
+          onPress={() => send()}
+          disabled={sending || !text.trim()}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: text.trim() ? t.accent : t.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
           <SendIcon color={text.trim() ? t.accentInk : t.faint} />
         </Pressable>
       </View>

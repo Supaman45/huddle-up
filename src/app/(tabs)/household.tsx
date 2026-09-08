@@ -3,9 +3,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
+import { AwayDates } from '@/components/away-dates';
 import { Avatar, Button, Card, Chip, ListRow, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { space, useTheme } from '@/lib/theme';
+import { space } from '@/lib/theme';
 import type { Profile } from '@/lib/types';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
@@ -23,15 +24,11 @@ export default function HouseholdScreen() {
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [icsToken, setIcsToken] = useState<string | null>(null);
-  const t = useTheme();
   const toast = useToast();
 
   const load = useCallback(async () => {
     if (!household) return;
-    const { data } = await supabase
-      .from('household_members')
-      .select('role, label, profile:profiles(*)')
-      .eq('household_id', household.id);
+    const { data } = await supabase.from('household_members').select('role, label, profile:profiles(*)').eq('household_id', household.id);
     setMembers((data as unknown as Member[]) ?? []);
     const { data: hh } = await supabase.from('households').select('ics_token').eq('id', household.id).maybeSingle();
     setIcsToken((hh as { ics_token: string } | null)?.ics_token ?? null);
@@ -46,11 +43,7 @@ export default function HouseholdScreen() {
 
   async function invite() {
     if (!household) return;
-    const { data, error } = await supabase
-      .from('household_invites')
-      .insert({ household_id: household.id, created_by: profile!.id })
-      .select('code')
-      .single();
+    const { data, error } = await supabase.from('household_invites').insert({ household_id: household.id, created_by: profile!.id }).select('code').single();
     if (error) return Alert.alert('Could not create invite', error.message);
     const msg = `Join our household on Huddle Up so you can see the kids' schedules and carpools. Open the app and enter household code ${data.code}. Link: huddleup://household/${data.code}`;
     try {
@@ -92,6 +85,9 @@ export default function HouseholdScreen() {
             <Text variant="small" color="muted" style={{ marginTop: space.sm }}>
               Tap the photo setting to change who can see pictures of {a.first_name}. Private to household is the default.
             </Text>
+            <View style={{ marginTop: space.md }}>
+              <AwayDates athlete={a} createdBy={profile!.id} />
+            </View>
           </Card>
         ))}
       </Stack>
@@ -118,7 +114,8 @@ export default function HouseholdScreen() {
       <Card style={{ gap: space.sm }}>
         <Text variant="h3">Put every kid on your own calendar</Text>
         <Text variant="small" color="muted">
-          Subscribe once and every practice, game and schedule change for every kid lands in Apple or Google Calendar automatically, with a two-hour heads-up alarm. Nobody has to re-enter anything.
+          Subscribe once and every practice, game and schedule change for every kid lands in Apple or Google Calendar automatically, with a two-hour heads-up alarm. Nobody has to
+          re-enter anything.
         </Text>
         <Row gap={space.sm} style={{ marginTop: space.sm }}>
           <View style={{ flex: 1 }}>
@@ -142,7 +139,7 @@ export default function HouseholdScreen() {
           />
         </Row>
         <Text variant="small" color="faint">
-          Anyone with this link can see your household's schedule, so share it only with your own people. Tap below to make a new link if it ever gets out.
+          Anyone with this link can see your household’s schedule, so share it only with your own people. Tap below to make a new link if it ever gets out.
         </Text>
         <Button
           title="Make a new link"

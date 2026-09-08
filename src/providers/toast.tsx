@@ -4,6 +4,7 @@ import { Animated, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CheckIcon, XIcon } from '@/components/icons';
+import { useAnimatedValue } from '@/lib/animation';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
 
 type Tone = 'success' | 'signal' | 'error';
@@ -19,7 +20,7 @@ const Ctx = createContext<{ show: (text: string, opts?: { tone?: Tone; action?: 
 // One toast at a time, bottom of the screen above the tab bar, 2.4 s, tap to dismiss.
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastMsg | null>(null);
-  const y = useRef(new Animated.Value(80)).current;
+  const y = useAnimatedValue(80);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const t = useTheme();
@@ -43,9 +44,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [hide, y],
   );
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const value = useMemo(() => ({ show }), [show]);
   const bg = toast?.tone === 'error' ? t.danger : toast?.tone === 'signal' ? t.signal : t.accent;

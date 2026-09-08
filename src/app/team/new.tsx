@@ -91,7 +91,8 @@ export default function NewTeam() {
           onChangeText={setIcs}
         />
         <Text variant="small" color="muted">
-          In TeamSnap: Schedule, then Subscribe. In SportsEngine: Calendar, then Subscribe. In GameChanger: Schedule, then Sync to calendar. Paste the link here and the schedule stays in sync every hour. Nothing else changes for the coach.
+          In TeamSnap: Schedule, then Subscribe. In SportsEngine: Calendar, then Subscribe. In GameChanger: Schedule, then Sync to calendar. Paste the link here and the schedule
+          stays in sync every hour. Nothing else changes for the coach.
         </Text>
         {athletes.length ? (
           <View style={{ gap: 6 }}>

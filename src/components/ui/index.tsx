@@ -146,9 +146,7 @@ export function Card({ style, rail, raised, children, ...rest }: ViewProps & { r
           padding: space.lg,
           overflow: 'hidden',
         },
-        raised
-          ? { shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 16 }, elevation: 12 }
-          : null,
+        raised ? { shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 16 }, elevation: 12 } : null,
         style,
       ]}
       {...rest}>
@@ -193,8 +191,7 @@ export function Button({
   icon?: React.ReactNode;
 }) {
   const t = useTheme();
-  const bg =
-    kind === 'primary' ? t.accent : kind === 'signal' ? t.signal : kind === 'danger' ? t.danger : kind === 'secondary' ? t.surfaceAlt : 'transparent';
+  const bg = kind === 'primary' ? t.accent : kind === 'signal' ? t.signal : kind === 'danger' ? t.danger : kind === 'secondary' ? t.surfaceAlt : 'transparent';
   const fg = kind === 'primary' || kind === 'signal' ? t.accentInk : kind === 'danger' ? '#1A0B0A' : kind === 'secondary' ? t.ink : t.accent;
   return (
     <Pressable
@@ -426,7 +423,16 @@ export function Segments<T extends string>({ value, onChange, items }: { value: 
           <Pressable
             key={it.key}
             onPress={() => onChange(it.key)}
-            style={{ flex: 1, paddingVertical: 10, borderRadius: radius.sm, backgroundColor: on ? t.surfaceRaised : 'transparent', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: radius.sm,
+              backgroundColor: on ? t.surfaceRaised : 'transparent',
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 6,
+            }}>
             <RNText style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: on ? t.inkStrong : t.muted }}>{it.label}</RNText>
             {it.badge ? (
               <View style={{ backgroundColor: t.signal, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }}>
@@ -469,7 +475,17 @@ export function NavBar({ onBack, backLabel = 'Back' }: { onBack?: () => void; ba
         accessibilityRole="button"
         accessibilityLabel="Home"
         onPress={() => router.replace('/(tabs)')}
-        style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surfaceAlt, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+        style={({ pressed }) => ({
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: t.surfaceAlt,
+          borderWidth: 1,
+          borderColor: t.line,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: pressed ? 0.7 : 1,
+        })}>
         <HomeIcon color={t.ink} size={20} />
       </Pressable>
     </Row>

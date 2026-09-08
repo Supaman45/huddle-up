@@ -43,7 +43,7 @@ export default function Album() {
       supabase.from('media').select('*, tags:media_tags(athlete_id)').eq('team_id', id).order('taken_at', { ascending: false }).limit(200),
     ]);
     setTeam(tm as Team);
-    setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete));
+    setRoster((ta ?? []).map((r) => r.athlete));
     const list = (md as MediaRow[]) ?? [];
     setRows(list);
     const paths = list.map((m) => m.storage_path);
@@ -68,10 +68,7 @@ export default function Album() {
   }, [id, load]);
 
   // Only kids whose household allows team visibility can be tagged by other parents.
-  const taggable = useMemo(
-    () => roster.filter((a) => a.media_consent !== 'household' || athletes.some((mine) => mine.id === a.id)),
-    [roster, athletes],
-  );
+  const taggable = useMemo(() => roster.filter((a) => a.media_consent !== 'household' || athletes.some((mine) => mine.id === a.id)), [roster, athletes]);
 
   async function add() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -104,7 +101,7 @@ export default function Album() {
       await supabase.from('media_tags').delete().eq('media_id', media.id).eq('athlete_id', athleteId);
     } else {
       const { error } = await supabase.from('media_tags').insert({ media_id: media.id, athlete_id: athleteId });
-      if (error) return toast("That family keeps their kid's photos private.", { tone: 'signal' });
+      if (error) return toast('That family keeps their kid’s photos private.', { tone: 'signal' });
       toast(`Tagged ${roster.find((a) => a.id === athleteId)?.first_name}. It shows on their player card.`);
     }
     await load();
@@ -132,7 +129,7 @@ export default function Album() {
         Season album
       </Text>
       <Text color="muted" style={{ marginTop: 6 }}>
-        Photos stay with the team and with each kid's card. Nothing here is public, ever.
+        Photos stay with the team and with each kid’s card. Nothing here is public, ever.
       </Text>
 
       <View style={{ marginTop: space.lg }}>
@@ -152,11 +149,25 @@ export default function Album() {
         {(rows ?? []).map((m) => (
           <Pressable key={m.id} onPress={() => setOpen(m)} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
             <View style={{ width: cell, height: cell, borderRadius: radius.md, overflow: 'hidden', backgroundColor: t.surfaceAlt }}>
-              {urls[m.storage_path] ? <Image source={{ uri: urls[m.storage_path] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <ActivityIndicator style={{ marginTop: cell / 2 - 10 }} color={t.faint} />}
+              {urls[m.storage_path] ? (
+                <Image source={{ uri: urls[m.storage_path] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              ) : (
+                <ActivityIndicator style={{ marginTop: cell / 2 - 10 }} color={t.faint} />
+              )}
               {m.tags?.length ? (
                 <View style={{ position: 'absolute', bottom: 6, left: 6, flexDirection: 'row', gap: 3 }}>
                   {m.tags.slice(0, 4).map((tag) => (
-                    <View key={tag.athlete_id} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: roster.find((a) => a.id === tag.athlete_id)?.color ?? t.accent, borderWidth: 1, borderColor: '#0F1620' }} />
+                    <View
+                      key={tag.athlete_id}
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: roster.find((a) => a.id === tag.athlete_id)?.color ?? t.accent,
+                        borderWidth: 1,
+                        borderColor: '#0F1620',
+                      }}
+                    />
                   ))}
                 </View>
               ) : null}
@@ -183,22 +194,16 @@ export default function Album() {
                   {format(new Date(open.taken_at), 'EEEE, MMM d')}
                 </Text>
                 <Text variant="h3" style={{ marginTop: 6 }}>
-                  Who's in this one?
+                  Who’s in this one?
                 </Text>
                 <Row style={{ marginTop: space.md, flexWrap: 'wrap' }}>
                   {taggable.map((a) => (
-                    <Chip
-                      key={a.id}
-                      label={a.first_name}
-                      dot={a.color}
-                      selected={open.tags?.some((x) => x.athlete_id === a.id)}
-                      onPress={() => toggleTag(open, a.id)}
-                    />
+                    <Chip key={a.id} label={a.first_name} dot={a.color} selected={open.tags?.some((x) => x.athlete_id === a.id)} onPress={() => toggleTag(open, a.id)} />
                   ))}
                 </Row>
                 {taggable.length < roster.length ? (
                   <Text variant="small" color="faint" style={{ marginTop: space.md }}>
-                    Some families keep their kid's photos private to their household, so those players cannot be tagged.
+                    Some families keep their kid’s photos private to their household, so those players cannot be tagged.
                   </Text>
                 ) : null}
                 {open.uploaded_by === profile?.id ? (

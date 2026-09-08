@@ -4,11 +4,10 @@ import { KeyboardAvoidingView, Platform, View } from 'react-native';
 
 import { Button, Input, Screen, Spacer, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { space, useTheme } from '@/lib/theme';
+import { space } from '@/lib/theme';
 
 export default function SignIn() {
   const router = useRouter();
-  const t = useTheme();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +36,10 @@ export default function SignIn() {
           <Text variant="label" color="accent">
             Huddle Up
           </Text>
-          <Text variant="display" style={{ marginTop: space.sm }}>Who's driving?</Text>
-          <Text color="muted">
-            One place for every kid's schedule, carpools and snack duty. Free for the team, always.
+          <Text variant="display" style={{ marginTop: space.sm }}>
+            Who’s driving?
           </Text>
+          <Text color="muted">One place for every kid’s schedule, carpools and snack duty. Free for the team, always.</Text>
         </View>
         <Spacer h={space.xxl} />
         <Stack>

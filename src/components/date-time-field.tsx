@@ -7,7 +7,18 @@ import { Input, Row, Text } from '@/components/ui';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
 
 // One control, three platforms: native pickers on iOS and Android, HTML date/time inputs on web.
-export function DateTimeField({ label, value, onChange }: { label: string; value: Date; onChange: (d: Date) => void }) {
+// dateOnly drops the time half, for things measured in whole days such as away dates.
+export function DateTimeField({
+  label,
+  value,
+  onChange,
+  dateOnly = false,
+}: {
+  label: string;
+  value: Date;
+  onChange: (d: Date) => void;
+  dateOnly?: boolean;
+}) {
   const t = useTheme();
   const [show, setShow] = useState<'date' | 'time' | null>(null);
 
@@ -31,17 +42,19 @@ export function DateTimeField({ label, value, onChange }: { label: string; value
               type="date"
             />
           </View>
-          <View style={{ flex: 1 }}>
-            <Input
-              value={timeStr}
-              onChangeText={(v) => {
-                const d = new Date(`${dateStr}T${v}`);
-                if (!Number.isNaN(d.getTime())) onChange(d);
-              }}
-              // @ts-expect-error web-only attribute passes through to the DOM input
-              type="time"
-            />
-          </View>
+          {dateOnly ? null : (
+            <View style={{ flex: 1 }}>
+              <Input
+                value={timeStr}
+                onChangeText={(v) => {
+                  const d = new Date(`${dateStr}T${v}`);
+                  if (!Number.isNaN(d.getTime())) onChange(d);
+                }}
+                // @ts-expect-error web-only attribute passes through to the DOM input
+                type="time"
+              />
+            </View>
+          )}
         </Row>
       </View>
     );
@@ -55,7 +68,17 @@ export function DateTimeField({ label, value, onChange }: { label: string; value
   const box = (text: string, mode: 'date' | 'time', flex: number) => (
     <Pressable
       onPress={() => setShow(show === mode ? null : mode)}
-      style={{ flex, backgroundColor: t.surface, borderWidth: 1, borderColor: show === mode ? t.accent : t.line, borderRadius: radius.md, paddingHorizontal: space.lg, paddingVertical: 13, minHeight: 48, justifyContent: 'center' }}>
+      style={{
+        flex,
+        backgroundColor: t.surface,
+        borderWidth: 1,
+        borderColor: show === mode ? t.accent : t.line,
+        borderRadius: radius.md,
+        paddingHorizontal: space.lg,
+        paddingVertical: 13,
+        minHeight: 48,
+        justifyContent: 'center',
+      }}>
       <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 17 }}>{text}</Text>
     </Pressable>
   );
@@ -67,7 +90,7 @@ export function DateTimeField({ label, value, onChange }: { label: string; value
       </Text>
       <Row>
         {box(format(value, 'EEE, MMM d'), 'date', 1.4)}
-        {box(format(value, 'h:mm a'), 'time', 1)}
+        {dateOnly ? null : box(format(value, 'h:mm a'), 'time', 1)}
       </Row>
       {show ? (
         <View style={{ backgroundColor: t.surface, borderRadius: radius.md, borderWidth: 1, borderColor: t.line, marginTop: 4, overflow: 'hidden' }}>
