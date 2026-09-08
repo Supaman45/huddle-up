@@ -209,6 +209,7 @@ export default function TeamSpace() {
           ) : null}
           {isStaff ? (
             <View style={{ marginTop: space.md, gap: space.sm }}>
+              <Button title="Paste a schedule" kind="secondary" onPress={() => router.push({ pathname: '/team/import', params: { id } })} />
               <SnackRotation teamId={id} onDone={load} />
               {!adding ? (
                 <Button title="Add an event" kind="secondary" onPress={() => setAdding(true)} />
