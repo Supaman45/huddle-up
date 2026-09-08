@@ -5,7 +5,7 @@ import { Alert, Share, View } from 'react-native';
 
 import { DateTimeField } from '@/components/date-time-field';
 import { EventCard } from '@/components/event-card';
-import { ChatIcon, ShareIcon, SyncIcon } from '@/components/icons';
+import { CameraIcon, ChatIcon, ShareIcon, SyncIcon } from '@/components/icons';
 import { Avatar, Button, NavBar, Card, Chip, Empty, Input, ListRow, Loading, Row, Screen, SectionHeader, Segments, Stack, Text } from '@/components/ui';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
@@ -142,6 +142,11 @@ export default function TeamSpace() {
           <Button title={unread ? `Chat · ${unread} new` : 'Team chat'} icon={<ChatIcon color={t.accentInk} size={20} />} onPress={() => router.push({ pathname: '/team/chat', params: { id } })} />
         </View>
         <Button title={team.join_code} kind="secondary" icon={<ShareIcon color={t.ink} size={18} />} onPress={share} />
+      </Row>
+      <Row style={{ marginTop: space.sm }} gap={space.sm}>
+        <View style={{ flex: 1 }}>
+          <Button title="Season album" kind="secondary" icon={<CameraIcon color={t.ink} size={18} />} onPress={() => router.push({ pathname: '/team/album', params: { id } })} />
+        </View>
       </Row>
 
       <View style={{ marginTop: space.lg }}>

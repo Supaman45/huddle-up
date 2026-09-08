@@ -36,12 +36,12 @@ export default function Me() {
 
   return (
     <Screen>
-      <Text variant="h1">You</Text>
+      <Text variant="h1">Settings</Text>
       <Text color="muted" style={{ marginTop: 4 }}>
         {profile?.email}
       </Text>
 
-      <SectionHeader title="Profile" />
+      <SectionHeader title="Your profile" />
       <Stack>
         <Input label="Name" value={name} onChangeText={setName} />
         <Input label="Mobile (for carpool texts)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="253 555 0100" />

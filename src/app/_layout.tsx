@@ -49,6 +49,7 @@ function Gate() {
       <Stack.Screen name="team/[id]" />
       <Stack.Screen name="team/new" options={{ presentation: 'modal' }} />
       <Stack.Screen name="team/chat" options={{ presentation: 'card' }} />
+      <Stack.Screen name="team/album" />
       <Stack.Screen name="team/join" options={{ presentation: 'modal' }} />
       <Stack.Screen name="athlete/new" options={{ presentation: 'modal' }} />
       <Stack.Screen name="athlete/[id]" />

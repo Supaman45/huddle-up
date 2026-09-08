@@ -1,0 +1,8 @@
+-- Applied live as "media_album_and_calendar_feed" (2026-09-08).
+--   media, media_tags        season album; photos live in the private team-media bucket
+--   athlete_media()          photos of one kid, for the player card
+--   households.ics_token     private calendar subscription token
+--   rotate_ics_token()       invalidates a leaked calendar link
+-- Tagging policy: a kid can only be tagged by another parent when their household set
+-- media_consent to 'team' or 'shareable'. Their own household can always tag them.
+-- Edge function `calendar-feed` (verify_jwt=false) serves the .ics for a token.

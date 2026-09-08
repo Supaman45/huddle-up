@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, View } from 'react-native';
+import { Animated, Image, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { BallIcon, HomeIcon } from '@/components/icons';
 import { Avatar, BackLink, Card, Chip, Divider, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
@@ -9,7 +9,17 @@ import { STATS, statDef, summaryLine } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
 import type { CardRow, Sport } from '@/lib/types';
+
 import { useToast } from '@/providers/toast';
+
+interface Shot {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  taken_at: string;
+  team_name: string;
+  url?: string;
+}
 
 interface SeasonBlock {
   key: string;
@@ -28,13 +38,25 @@ export default function PlayerCard() {
   const t = useTheme();
   const toast = useToast();
   const [rows, setRows] = useState<CardRow[] | null>(null);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [flipped, setFlipped] = useState(false);
   const spin = useRef(new Animated.Value(0)).current;
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('athlete_card', { p_athlete_id: id });
+    const [{ data, error }, { data: media }] = await Promise.all([
+      supabase.rpc('athlete_card', { p_athlete_id: id }),
+      supabase.rpc('athlete_media', { p_athlete_id: id, p_limit: 24 }),
+    ]);
     if (error) toast(error.message, { tone: 'error' });
     setRows((data as CardRow[]) ?? []);
+    const list = (media as Shot[]) ?? [];
+    if (list.length) {
+      const { data: signed } = await supabase.storage.from('team-media').createSignedUrls(list.map((m) => m.storage_path), 3600);
+      const map = Object.fromEntries((signed ?? []).filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string]));
+      setShots(list.map((m) => ({ ...m, url: map[m.storage_path] })));
+    } else {
+      setShots([]);
+    }
   }, [id, toast]);
 
   useFocusEffect(
@@ -233,6 +255,23 @@ export default function PlayerCard() {
           </Card>
         ))}
       </Stack>
+
+      {/* ---------- Photos ---------- */}
+      {shots.length ? (
+        <>
+          <SectionHeader title="Photos" right={<Chip label={`${shots.length}`} />} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+            {shots.map((sh) => (
+              <View key={sh.id} style={{ width: 132, height: 132, borderRadius: radius.md, overflow: 'hidden', backgroundColor: t.surfaceAlt }}>
+                {sh.url ? <Image source={{ uri: sh.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : null}
+              </View>
+            ))}
+          </ScrollView>
+          <Text variant="small" color="faint" style={{ marginTop: space.sm }}>
+            Photos the team tagged {kid.first_name} in. You control this on the Household tab.
+          </Text>
+        </>
+      ) : null}
 
       {/* ---------- What Family Plus adds ---------- */}
       <SectionHeader title="Family Plus" />

@@ -1,13 +1,14 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, Share, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
 import { Avatar, Button, Card, Chip, ListRow, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { space } from '@/lib/theme';
+import { space, useTheme } from '@/lib/theme';
 import type { Profile } from '@/lib/types';
 import { useSession } from '@/providers/session';
+import { useToast } from '@/providers/toast';
 
 interface Member {
   role: 'owner' | 'adult';
@@ -21,6 +22,9 @@ export default function HouseholdScreen() {
   const { household, athletes, profile, refresh } = useSession();
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
+  const [icsToken, setIcsToken] = useState<string | null>(null);
+  const t = useTheme();
+  const toast = useToast();
 
   const load = useCallback(async () => {
     if (!household) return;
@@ -29,6 +33,8 @@ export default function HouseholdScreen() {
       .select('role, label, profile:profiles(*)')
       .eq('household_id', household.id);
     setMembers((data as unknown as Member[]) ?? []);
+    const { data: hh } = await supabase.from('households').select('ics_token').eq('id', household.id).maybeSingle();
+    setIcsToken((hh as { ics_token: string } | null)?.ics_token ?? null);
     await refresh();
   }, [household, refresh]);
 
@@ -107,6 +113,50 @@ export default function HouseholdScreen() {
       <View style={{ marginTop: space.xl }}>
         <Button title="Invite an adult" kind="secondary" onPress={invite} />
       </View>
+
+      <SectionHeader title="Phone calendar" />
+      <Card style={{ gap: space.sm }}>
+        <Text variant="h3">Put every kid on your own calendar</Text>
+        <Text variant="small" color="muted">
+          Subscribe once and every practice, game and schedule change for every kid lands in Apple or Google Calendar automatically, with a two-hour heads-up alarm. Nobody has to re-enter anything.
+        </Text>
+        <Row gap={space.sm} style={{ marginTop: space.sm }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Add to my calendar"
+              onPress={() => {
+                if (!icsToken) return;
+                const url = `webcal://ftaxrqwsscitsqrqedxm.supabase.co/functions/v1/calendar-feed?t=${icsToken}`;
+                Linking.openURL(url).catch(() => toast('Copy the link instead and add it in your calendar app.', { tone: 'signal' }));
+              }}
+            />
+          </View>
+          <Button
+            title="Copy link"
+            kind="secondary"
+            onPress={async () => {
+              if (!icsToken) return;
+              await Clipboard.setStringAsync(`https://ftaxrqwsscitsqrqedxm.supabase.co/functions/v1/calendar-feed?t=${icsToken}`);
+              toast('Calendar link copied');
+            }}
+          />
+        </Row>
+        <Text variant="small" color="faint">
+          Anyone with this link can see your household's schedule, so share it only with your own people. Tap below to make a new link if it ever gets out.
+        </Text>
+        <Button
+          title="Make a new link"
+          kind="ghost"
+          size="sm"
+          onPress={async () => {
+            const { data, error } = await supabase.rpc('rotate_ics_token');
+            if (error) return toast(error.message, { tone: 'error' });
+            setIcsToken(data as string);
+            toast('New link made. The old one stopped working.');
+          }}
+        />
+      </Card>
+      <View style={{ height: 20 }} />
     </Screen>
   );
 }

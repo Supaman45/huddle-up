@@ -75,16 +75,18 @@ export function Screen({
       </View>
     );
   }
+  // The ScrollView IS the screen root. Nesting it inside a wrapper View is what left
+  // content clipped at the tab bar on iOS, because the wrapper sized itself to the content.
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg }}>
+    <ScrollView
+      style={[{ flex: 1, backgroundColor: t.bg }, style]}
+      contentContainerStyle={[{ paddingTop: insets.top + space.md, paddingBottom: insets.bottom + 140 }, pad, contentStyle]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
+      contentInsetAdjustmentBehavior="never">
       {glowEl}
-      <ScrollView
-        style={[{ flex: 1 }, style]}
-        contentContainerStyle={[{ paddingTop: insets.top + space.md, paddingBottom: insets.bottom + 110 }, pad, contentStyle]}
-        keyboardShouldPersistTaps="handled">
-        {children}
-      </ScrollView>
-    </View>
+      {children}
+    </ScrollView>
   );
 }
 
