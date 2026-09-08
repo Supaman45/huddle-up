@@ -1,0 +1,5 @@
+-- Applied live via MCP as migration `team_season_summary`.
+-- team_record(team_id)  -> wins, losses, ties, games, points for and against
+-- team_leaders(team_id) -> per athlete, per stat tallies across every scored game
+-- Both are SECURITY DEFINER and gate on is_team_member, so a parent only ever sees
+-- the season for a team they are actually on.

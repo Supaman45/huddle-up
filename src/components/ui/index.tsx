@@ -12,6 +12,7 @@ import {
   View,
   type PressableProps,
   type StyleProp,
+  type RefreshControlProps,
   type TextInputProps,
   type TextProps,
   type TextStyle,
@@ -55,6 +56,7 @@ export function Screen({
   glow = false,
   style,
   contentStyle,
+  refreshControl,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -62,6 +64,7 @@ export function Screen({
   glow?: boolean;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -83,6 +86,7 @@ export function Screen({
       contentContainerStyle={[{ paddingTop: insets.top + space.md, paddingBottom: insets.bottom + 140 }, pad, contentStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator
+      refreshControl={refreshControl}
       contentInsetAdjustmentBehavior="never">
       {glowEl}
       {children}

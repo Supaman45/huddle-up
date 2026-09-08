@@ -1,0 +1,10 @@
+-- Applied live via MCP as migration `activity_feed`.
+-- Activity feed. Push notifications are blocked on tooling, but the promise of the app
+-- is that a parent never misses a change. This gives every change a durable, readable home.
+--
+-- Tables:  activity (read-only to clients), activity_reads (own row)
+-- Writes:  SECURITY DEFINER triggers on events, carpool_requests, signup_claims, games
+-- Reads:   my_activity(limit), unread_activity(), mark_activity_read()
+--
+-- The full statement text lives in the Supabase migration history for this project
+-- (supabase.com -> huddle-up -> Database -> Migrations -> activity_feed).

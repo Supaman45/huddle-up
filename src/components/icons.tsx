@@ -176,3 +176,30 @@ export function SyncIcon(p: IconProps) {
     </Svg>
   );
 }
+
+export function BellIcon(p: IconProps) {
+  return (
+    <Svg {...base(p)} stroke={p.color}>
+      <Path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+      <Path d="M13.7 20a2 2 0 0 1-3.4 0" />
+    </Svg>
+  );
+}
+
+export function PencilIcon(p: IconProps) {
+  return (
+    <Svg {...base(p)} stroke={p.color}>
+      <Path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
+    </Svg>
+  );
+}
+
+export function TrophyIcon(p: IconProps) {
+  return (
+    <Svg {...base(p)} stroke={p.color}>
+      <Path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <Path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" />
+      <Path d="M12 14v3M9 20h6" />
+    </Svg>
+  );
+}

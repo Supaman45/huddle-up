@@ -40,6 +40,10 @@ export interface Team {
   ics_last_synced_at: string | null;
   ics_last_error: string | null;
   default_arrive_minutes: number;
+  /** Team crest in the team-media bucket under <team_id>/brand/. Staff only. */
+  logo_path: string | null;
+  /** Overrides the app accent inside this team's screens when set. */
+  accent_color: string | null;
 }
 
 export interface TeamMember {
@@ -86,6 +90,15 @@ export interface MyEvent {
   out_count: number;
   unanswered: number;
   my_rsvps: Record<string, RsvpStatus>;
+  /** First name of the parent driving my kid, when a ride is matched. */
+  ride_driver: string | null;
+  ride_driver_phone: string | null;
+  ride_note: string | null;
+  /** Unclaimed seats across every car offered for this event. */
+  seats_open: number;
+  /** Unclaimed seats in my own car, when I am driving. */
+  my_seats_open: number | null;
+  my_riders: number | null;
 }
 
 export interface CarpoolOffer {
@@ -107,6 +120,7 @@ export interface CarpoolRequest {
   offer_id: string | null;
   status: 'open' | 'matched' | 'cancelled';
   note: string | null;
+  created_at?: string;
   athlete?: Athlete;
   requester?: Profile;
 }
@@ -194,4 +208,28 @@ export interface CardRow {
   tally: number | null;
   points: number | null;
   is_current: boolean | null;
+}
+
+export type ActivityKind =
+  | 'event_added'
+  | 'event_changed'
+  | 'event_cancelled'
+  | 'ride_needed'
+  | 'ride_filled'
+  | 'slot_claimed'
+  | 'game_final';
+
+export interface ActivityRow {
+  id: string;
+  team_id: string;
+  team_name: string;
+  team_color: string;
+  event_id: string | null;
+  kind: ActivityKind;
+  title: string;
+  body: string;
+  actor_id: string | null;
+  actor_name: string;
+  created_at: string;
+  is_new: boolean;
 }

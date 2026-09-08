@@ -1,0 +1,5 @@
+-- Applied live via MCP as migrations `team_branding` and `team_branding_policy_fix`.
+-- teams.logo_path, teams.accent_color.
+-- Crests live at <team_id>/brand/ in the team-media bucket. Storage policies are OR'd,
+-- so the members-upload policy had to be narrowed to exclude the brand prefix before a
+-- staff-only rule on it meant anything.

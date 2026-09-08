@@ -1,0 +1,9 @@
+-- Applied live via MCP as migration `lock_new_function_grants`.
+-- The four trigger functions and the two formatting helpers were reachable as REST RPCs.
+-- Revoked from anon and authenticated; triggers run as the function owner and need no grant.
+-- The reader RPCs (my_activity, unread_activity, mark_activity_read, my_events,
+-- team_record, team_leaders) keep EXECUTE for authenticated and lose it for anon.
+--
+-- Do not extend this to is_team_member / is_team_staff / is_household_* — those run inside
+-- RLS policy expressions as the CALLING role, and revoking them breaks every policy that
+-- uses them. That was the migration 0002 bug.

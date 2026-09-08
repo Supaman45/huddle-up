@@ -1,0 +1,6 @@
+-- Applied live via MCP as migration `my_events_carpool_detail`.
+-- my_events() gained the handoff fields a carpool actually needs:
+--   ride_driver, ride_driver_phone, ride_note  (who is driving my kid and how to reach them)
+--   seats_open                                  (capacity on the team, for a waiting parent)
+--   my_seats_open, my_riders                    (my own car, for a driving parent)
+-- Return type changed, so the migration drops and recreates the function.

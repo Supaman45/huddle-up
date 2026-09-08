@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
+import { TeamCrest } from '@/components/team-crest';
 import { Avatar, Button, Empty, ListRow, Loading, Row, Screen, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel } from '@/lib/theme';
@@ -54,7 +55,7 @@ export default function Teams() {
             {rows.map((r) => (
               <ListRow
                 key={r.team.id}
-                leading={<Avatar name={r.team.name} color={r.team.color} size={40} />}
+                leading={<TeamCrest name={r.team.name} color={r.team.color} logoPath={r.team.logo_path} size={40} />}
                 title={r.team.name}
                 subtitle={`${sportLabel[r.team.sport]}${r.team.season ? ` · ${r.team.season}` : ''} · ${r.role === 'parent' ? 'Parent' : r.role === 'coach' ? 'Coach' : 'Manager'}`}
                 onPress={() => router.push({ pathname: '/team/[id]', params: { id: r.team.id } })}

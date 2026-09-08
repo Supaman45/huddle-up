@@ -1,15 +1,16 @@
 import { addMonths, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/event-card';
+import { BellIcon } from '@/components/icons';
 import { MonthGrid } from '@/components/month-grid';
 import { Avatar, Button, Chip, Empty, Glow, Loading, Row, Segments, Stack, Text } from '@/components/ui';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
-import { space, useTheme } from '@/lib/theme';
+import { fonts, space, useTheme } from '@/lib/theme';
 import type { MyEvent } from '@/lib/types';
 import { useSession } from '@/providers/session';
 
@@ -38,6 +39,7 @@ export default function ThisWeek() {
   const [events, setEvents] = useState<MyEvent[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [teamCount, setTeamCount] = useState<number | null>(null);
+  const [news, setNews] = useState(0);
   const [kidFilter, setKidFilter] = useState<string | null>(null);
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [month, setMonth] = useState(() => new Date());
@@ -47,12 +49,14 @@ export default function ThisWeek() {
     if (!profile) return;
     const from = addMonths(startOfDay(new Date()), -2);
     const to = addMonths(from, 14);
-    const [{ data }, { count }] = await Promise.all([
+    const [{ data }, { count }, { data: unread }] = await Promise.all([
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.from('team_members').select('*', { count: 'exact', head: true }).eq('profile_id', profile.id),
+      supabase.rpc('unread_activity'),
     ]);
     setEvents((data as MyEvent[]) ?? []);
     setTeamCount(count ?? 0);
+    setNews((unread as number) ?? 0);
   }, [profile]);
 
   useFocusEffect(
@@ -84,7 +88,17 @@ export default function ThisWeek() {
           <Text variant="label" color="accent">
             Huddle Up
           </Text>
-          <Avatar name={profile?.full_name || profile?.email || '?'} size={34} />
+          <Row gap={space.md}>
+            <Pressable onPress={() => router.push('/activity')} accessibilityLabel={news ? `What changed, ${news} new` : 'What changed'} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <BellIcon color={news ? t.signal : t.muted} size={22} />
+              {news ? (
+                <View style={{ position: 'absolute', top: 6, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: t.signal, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: t.bg }}>
+                  <Text style={{ fontSize: 10, lineHeight: 12, color: t.accentInk, fontFamily: fonts.displayBold }}>{news > 9 ? '9+' : news}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Avatar name={profile?.full_name || profile?.email || '?'} size={34} />
+          </Row>
         </Row>
         <Text variant="display" style={{ marginTop: space.md }}>
           {h.big}
