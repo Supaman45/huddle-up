@@ -1,0 +1,9 @@
+-- Applied live via MCP as migration `broadcast_read_receipts`.
+--
+-- messages.important marks a coach broadcast. message_seen_by(message_id) derives read
+-- state from team_reads, the same marker the unread badge already uses: "has this person
+-- seen it" is a timestamp comparison. No per-message rows, nothing to keep in sync, and it
+-- answers correctly for messages sent before the feature existed.
+--
+-- Only the author sees the list. A whole team watching each other's read state would change
+-- how people use the room.

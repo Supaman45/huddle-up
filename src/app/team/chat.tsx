@@ -9,7 +9,7 @@ import { CameraIcon, HomeIcon, SendIcon } from '@/components/icons';
 import { Avatar, BackLink, Loading, Row, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
-import type { Message, Team } from '@/lib/types';
+import type { Message, SeenBy, Team } from '@/lib/types';
 import { useSession } from '@/providers/session';
 
 const REACTIONS = ['👍', '❤️', '😂', '🙌'];
@@ -31,9 +31,14 @@ export default function TeamChat() {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [important, setImportant] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
+  const [seen, setSeen] = useState<{ id: string; rows: SeenBy[] } | null>(null);
   const list = useRef<FlatList<Message>>(null);
 
   const load = useCallback(async () => {
+    const { data: role } = await supabase.from('team_members').select('role').eq('team_id', id).eq('profile_id', profile!.id).maybeSingle();
+    setIsStaff(role?.role === 'manager' || role?.role === 'coach');
     const [{ data: tm }, { data: ms }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
       supabase
@@ -71,10 +76,22 @@ export default function TeamChat() {
     const body = text.trim();
     if (!body && !imagePath) return;
     setSending(true);
-    const { error } = await supabase.from('messages').insert({ team_id: id, author_id: profile!.id, body: body || null, image_path: imagePath ?? null });
+    const { error } = await supabase
+      .from('messages')
+      .insert({ team_id: id, author_id: profile!.id, body: body || null, image_path: imagePath ?? null, important });
     setSending(false);
     if (error) return Alert.alert('Could not send', error.message);
     setText('');
+    setImportant(false);
+  }
+
+  // Seen is derived from team_reads, the same marker the unread badge uses. No per-message
+  // rows to keep in sync, and it stays correct for messages sent before this existed.
+  async function showSeen(messageId: string) {
+    if (seen?.id === messageId) return setSeen(null);
+    const { data, error } = await supabase.rpc('message_seen_by', { p_message_id: messageId });
+    if (error) return Alert.alert('Could not check', error.message);
+    setSeen({ id: messageId, rows: data ?? [] });
   }
 
   async function pickPhoto() {
@@ -123,7 +140,16 @@ export default function TeamChat() {
               borderBottomRightRadius: mine ? 6 : radius.lg,
               borderBottomLeftRadius: mine ? radius.lg : 6,
               overflow: 'hidden',
+              borderLeftWidth: m.important ? 4 : 0,
+              borderLeftColor: t.signal,
             }}>
+            {m.important ? (
+              <Text
+                variant="label"
+                style={{ paddingHorizontal: 14, paddingTop: 8, color: mine ? t.accentInk : t.signal }}>
+                Everyone needs to see this
+              </Text>
+            ) : null}
             {m.image_path && urls[m.image_path] ? <Image source={{ uri: urls[m.image_path] }} style={{ width: 240, height: 240 }} resizeMode="cover" /> : null}
             {m.body ? (
               <Text style={{ paddingHorizontal: 14, paddingVertical: 10, color: mine ? t.accentInk : t.ink, fontFamily: fonts.body, fontSize: 16, lineHeight: 22 }}>{m.body}</Text>
@@ -146,6 +172,38 @@ export default function TeamChat() {
               </Text>
             ) : null}
           </Row>
+
+          {/* Only the author is shown who has read it. A whole team watching each other's
+              read state would change how people use the room. */}
+          {mine && m.important ? (
+            <Pressable onPress={() => showSeen(m.id)} style={{ alignSelf: 'flex-end', paddingTop: 2 }}>
+              <Text variant="small" color="accent">
+                {seen?.id === m.id ? 'Hide who has seen it' : 'Who has seen it'}
+              </Text>
+            </Pressable>
+          ) : null}
+          {seen?.id === m.id ? (
+            <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', marginTop: 4, backgroundColor: t.surface, borderRadius: radius.md, borderWidth: 1, borderColor: t.line, padding: space.md, maxWidth: 280 }}>
+              <Text variant="label" color="faint">
+                Seen by {seen.rows.filter((r) => r.seen).length} of {seen.rows.length}
+              </Text>
+              {seen.rows.map((r) => (
+                <Row key={r.profile_id} style={{ justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text variant="small" color={r.seen ? 'muted' : 'ink'}>
+                    {r.full_name}
+                  </Text>
+                  <Text variant="small" color={r.seen ? 'accent' : 'signal'}>
+                    {r.seen ? 'seen' : 'not yet'}
+                  </Text>
+                </Row>
+              ))}
+              {seen.rows.length === 0 ? (
+                <Text variant="small" color="muted" style={{ marginTop: 6 }}>
+                  No one else is on this team yet.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -186,6 +244,27 @@ export default function TeamChat() {
           }
         />
       )}
+      {/* A coach with something everyone must see marks it once; the message then carries
+          its own read state instead of the coach asking "did you all see my text". */}
+      {isStaff ? (
+        <Pressable onPress={() => setImportant((v) => !v)} style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
+          <Row gap={space.sm}>
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 5,
+                borderWidth: 2,
+                borderColor: important ? t.signal : t.line,
+                backgroundColor: important ? t.signal : 'transparent',
+              }}
+            />
+            <Text variant="small" color={important ? 'signal' : 'muted'}>
+              Everyone needs to see this. Shows who has and has not.
+            </Text>
+          </Row>
+        </Pressable>
+      ) : null}
       <View
         style={{
           flexDirection: 'row',

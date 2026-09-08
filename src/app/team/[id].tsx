@@ -7,6 +7,7 @@ import { DateTimeField } from '@/components/date-time-field';
 import { EventCard } from '@/components/event-card';
 import { SeasonTab, type FinalGame } from '@/components/team/season-tab';
 import { SnackRotation } from '@/components/team/snack-rotation';
+import { Trips } from '@/components/team/trips';
 import { LinkedCalendar, TeamBrand } from '@/components/team/team-brand';
 import { TeamCrest } from '@/components/team-crest';
 import { CameraIcon, ChatIcon, ShareIcon, SyncIcon } from '@/components/icons';
@@ -273,6 +274,12 @@ export default function TeamSpace() {
       ) : null}
 
       {/* ---------- Season ---------- */}
+      {tab === 'schedule' ? (
+        <View style={{ marginTop: space.xl }}>
+          <Trips teamId={id} isStaff={isStaff} createdBy={profile!.id} />
+        </View>
+      ) : null}
+
       {tab === 'season' ? <SeasonTab team={team} record={record} results={results} leaders={leaders} /> : null}
 
       {tab === 'people' ? (

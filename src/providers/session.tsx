@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { clearCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import type { Athlete, Household, Profile } from '@/lib/types';
 
@@ -70,6 +71,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   const signOut = useCallback(async () => {
+    // The offline cache holds this household's schedule. It does not follow them out.
+    await clearCache();
     await supabase.auth.signOut();
   }, []);
 

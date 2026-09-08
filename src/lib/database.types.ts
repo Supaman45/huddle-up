@@ -137,9 +137,9 @@ export type Database = {
         ];
       };
       messages: {
-        Row: { author_id: string; body: string | null; created_at: string; event_id: string | null; id: string; image_path: string | null; team_id: string };
-        Insert: { author_id: string; body?: string | null; created_at?: string; event_id?: string | null; id?: string; image_path?: string | null; team_id: string };
-        Update: { author_id?: string; body?: string | null; created_at?: string; event_id?: string | null; id?: string; image_path?: string | null; team_id?: string };
+        Row: { author_id: string; body: string | null; created_at: string; event_id: string | null; id: string; image_path: string | null; important: boolean; team_id: string };
+        Insert: { author_id: string; body?: string | null; created_at?: string; event_id?: string | null; id?: string; image_path?: string | null; important?: boolean; team_id: string };
+        Update: { author_id?: string; body?: string | null; created_at?: string; event_id?: string | null; id?: string; image_path?: string | null; important?: boolean; team_id?: string };
         Relationships: [
           { foreignKeyName: 'messages_author_id_fkey'; columns: ['author_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
           { foreignKeyName: 'messages_event_id_fkey'; columns: ['event_id']; isOneToOne: false; referencedRelation: 'events'; referencedColumns: ['id'] },
@@ -167,6 +167,15 @@ export type Database = {
         Update: { created_at?: string; platform?: string; profile_id?: string; token?: string };
         Relationships: [
           { foreignKeyName: 'push_tokens_profile_id_fkey'; columns: ['profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+        ];
+      };
+      ride_patterns: {
+        Row: { active: boolean; created_at: string; direction: Database['public']['Enums']['ride_direction']; driver_id: string; event_type: Database['public']['Enums']['event_type'] | null; id: string; pickup_note: string | null; seats: number; team_id: string; weekday: number };
+        Insert: { active?: boolean; created_at?: string; direction?: Database['public']['Enums']['ride_direction']; driver_id: string; event_type?: Database['public']['Enums']['event_type'] | null; id?: string; pickup_note?: string | null; seats: number; team_id: string; weekday: number };
+        Update: { active?: boolean; created_at?: string; direction?: Database['public']['Enums']['ride_direction']; driver_id?: string; event_type?: Database['public']['Enums']['event_type'] | null; id?: string; pickup_note?: string | null; seats?: number; team_id?: string; weekday?: number };
+        Relationships: [
+          { foreignKeyName: 'ride_patterns_driver_id_fkey'; columns: ['driver_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'ride_patterns_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
         ];
       };
       rsvps: {
@@ -225,6 +234,15 @@ export type Database = {
           { foreignKeyName: 'team_members_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
         ];
       };
+      team_places: {
+        Row: { bring_note: string | null; created_at: string; created_by: string; id: string; map_url: string | null; name: string; parking_note: string | null; team_id: string; updated_at: string };
+        Insert: { bring_note?: string | null; created_at?: string; created_by: string; id?: string; map_url?: string | null; name: string; parking_note?: string | null; team_id: string; updated_at?: string };
+        Update: { bring_note?: string | null; created_at?: string; created_by?: string; id?: string; map_url?: string | null; name?: string; parking_note?: string | null; team_id?: string; updated_at?: string };
+        Relationships: [
+          { foreignKeyName: 'team_places_created_by_fkey'; columns: ['created_by']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'team_places_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+        ];
+      };
       team_reads: {
         Row: { last_read_at: string; profile_id: string; team_id: string };
         Insert: { last_read_at?: string; profile_id: string; team_id: string };
@@ -232,6 +250,24 @@ export type Database = {
         Relationships: [
           { foreignKeyName: 'team_reads_profile_id_fkey'; columns: ['profile_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
           { foreignKeyName: 'team_reads_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+        ];
+      };
+      trips: {
+        Row: { base_name: string | null; base_url: string | null; created_at: string; created_by: string; ends_on: string; id: string; name: string; notes: string | null; starts_on: string; team_id: string };
+        Insert: { base_name?: string | null; base_url?: string | null; created_at?: string; created_by: string; ends_on: string; id?: string; name: string; notes?: string | null; starts_on: string; team_id: string };
+        Update: { base_name?: string | null; base_url?: string | null; created_at?: string; created_by?: string; ends_on?: string; id?: string; name?: string; notes?: string | null; starts_on?: string; team_id?: string };
+        Relationships: [
+          { foreignKeyName: 'trips_created_by_fkey'; columns: ['created_by']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'trips_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+        ];
+      };
+      trip_attendance: {
+        Row: { adults: number; athlete_id: string; going: boolean; night_count?: never; nights: number; note: string | null; set_by: string; trip_id: string; updated_at: string };
+        Insert: { adults?: number; athlete_id: string; going?: boolean; nights?: number; note?: string | null; set_by: string; trip_id: string; updated_at?: string };
+        Update: { adults?: number; athlete_id?: string; going?: boolean; nights?: number; note?: string | null; set_by?: string; trip_id?: string; updated_at?: string };
+        Relationships: [
+          { foreignKeyName: 'trip_attendance_athlete_id_fkey'; columns: ['athlete_id']; isOneToOne: false; referencedRelation: 'athletes'; referencedColumns: ['id'] },
+          { foreignKeyName: 'trip_attendance_trip_id_fkey'; columns: ['trip_id']; isOneToOne: false; referencedRelation: 'trips'; referencedColumns: ['id'] },
         ];
       };
       teams: {
@@ -254,6 +290,8 @@ export type Database = {
     };
     Functions: {
       accept_household_invite: { Args: { p_code: string }; Returns: string };
+      announce_departure: { Args: { p_offer_id: string; p_minutes?: number }; Returns: undefined };
+      apply_ride_patterns: { Args: { p_horizon_days?: number }; Returns: number };
       athlete_card: {
         Args: { p_athlete_id: string };
         Returns: { birth_year: number; color: string; first_name: string; games: number; is_current: boolean; last_initial: string; points: number; season: string; sport: Database['public']['Enums']['sport']; stat_type: string; tally: number; team_id: string; team_name: string }[];
@@ -276,6 +314,10 @@ export type Database = {
       is_team_staff: { Args: { tid: string }; Returns: boolean };
       join_team: { Args: { p_code: string }; Returns: string };
       mark_activity_read: { Args: never; Returns: undefined };
+      message_seen_by: {
+        Args: { p_message_id: string };
+        Returns: { full_name: string; profile_id: string; seen: boolean }[];
+      };
       my_activity: {
         Args: { p_limit?: number };
         Returns: { actor_id: string; actor_name: string; body: string; created_at: string; event_id: string; id: string; is_new: boolean; kind: Database['public']['Enums']['activity_kind']; team_color: string; team_id: string; team_name: string; title: string }[];
@@ -312,11 +354,16 @@ export type Database = {
         Returns: { games_played: number; losses: number; points_against: number; points_for: number; ties: number; wins: number }[];
       };
       team_tz: { Args: { tid: string }; Returns: string };
+      trip_events: { Args: { p_trip_id: string }; Returns: Database['public']['Tables']['events']['Row'][] };
+      trip_roster: {
+        Args: { p_trip_id: string };
+        Returns: { adults: number; athlete_id: string; color: string; first_name: string; going: boolean; last_initial: string; nights: number; note: string | null }[];
+      };
       unread_activity: { Args: never; Returns: number };
       when_txt: { Args: { tid: string; ts: string }; Returns: string };
     };
     Enums: {
-      activity_kind: 'event_added' | 'event_changed' | 'event_cancelled' | 'ride_needed' | 'ride_filled' | 'slot_claimed' | 'game_final';
+      activity_kind: 'event_added' | 'event_changed' | 'event_cancelled' | 'ride_needed' | 'ride_filled' | 'slot_claimed' | 'game_final' | 'ride_leaving';
       event_source: 'manual' | 'ics';
       event_type: 'game' | 'practice' | 'tournament' | 'other';
       game_status: 'scheduled' | 'live' | 'final';

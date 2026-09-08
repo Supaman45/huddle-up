@@ -1,18 +1,34 @@
+import { format } from 'date-fns';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 
 import { DateTimeField } from '@/components/date-time-field';
 import { CarpoolBoard, type OfferForm } from '@/components/event/carpool-board';
+import { GettingThere } from '@/components/event/getting-there';
+import { OfflineNote } from '@/components/offline-note';
 import { SignupBoard, type SlotForm } from '@/components/event/signup-board';
-import { PencilIcon, PinIcon } from '@/components/icons';
+import { PencilIcon } from '@/components/icons';
 import { Avatar, Button, NavBar, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { readCache, writeCache } from '@/lib/cache';
 import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
-import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, Rsvp, RsvpStatus, SignupSlot, Team, TeamRole } from '@/lib/types';
+import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, Rsvp, RsvpStatus, SignupSlot, Team, TeamPlace, TeamRole } from '@/lib/types';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
+
+/** Everything this screen needs to be useful with no signal. */
+interface EventSnapshot {
+  event: Event;
+  team: Team;
+  offers: CarpoolOffer[];
+  requests: CarpoolRequest[];
+  slots: SignupSlot[];
+  roster: Athlete[];
+  rsvps: Rsvp[];
+  place: TeamPlace | null;
+}
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,19 +44,38 @@ export default function EventScreen() {
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [rsvps, setRsvps] = useState<Rsvp[]>([]);
   const [game, setGame] = useState<Game | null>(null);
-  const [offerForm, setOfferForm] = useState<OfferForm>({ open: false, seats: '2', direction: 'both', note: '' });
+  const [offerForm, setOfferForm] = useState<OfferForm>({ open: false, seats: '2', direction: 'both', note: '', repeat: false });
   const [slotForm, setSlotForm] = useState<SlotForm>({ open: false, title: '', kind: 'snack', needed: '1' });
   const [myRole, setMyRole] = useState<TeamRole | null>(null);
   const [edit, setEdit] = useState<{ open: boolean; title: string; type: EventType; when: Date; minutes: string; location: string; notes: string } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [nudging, setNudging] = useState(false);
   const [awayIds, setAwayIds] = useState<string[]>([]);
+  const [place, setPlace] = useState<TeamPlace | null>(null);
+  const [staleAt, setStaleAt] = useState<number | null>(null);
 
   const load = useCallback(async () => {
-    const { data: ev } = await supabase.from('events').select('*').eq('id', id).single();
-    if (!ev) return;
+    const { data: ev, error: evErr } = await supabase.from('events').select('*').eq('id', id).single();
+    if (evErr || !ev) {
+      // Standing at the field with one bar: show what we last saw, dated, rather than a
+      // spinner over the details the parent came here for.
+      const cached = await readCache<EventSnapshot>(`event.${id}`);
+      if (cached) {
+        setEvent(cached.value.event);
+        setTeam(cached.value.team);
+        setOffers(cached.value.offers);
+        setRequests(cached.value.requests);
+        setRoster(cached.value.roster);
+        setRsvps(cached.value.rsvps);
+        setSlots(cached.value.slots);
+        setPlace(cached.value.place);
+        setStaleAt(cached.at);
+      }
+      return;
+    }
+    setStaleAt(null);
     setEvent(ev as Event);
-    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }, { data: gm }, { data: me }, { data: aw }] = await Promise.all([
+    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }, { data: gm }, { data: me }, { data: aw }, { data: pl }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', ev.team_id).single(),
       supabase.from('carpool_offers').select('*, driver:profiles(*)').eq('event_id', id).order('created_at'),
       supabase.from('carpool_requests').select('*, athlete:athletes(*), requester:profiles(*)').eq('event_id', id).neq('status', 'cancelled').order('created_at'),
@@ -50,9 +85,23 @@ export default function EventScreen() {
       supabase.from('games').select('*').eq('event_id', id).maybeSingle(),
       supabase.from('team_members').select('role').eq('team_id', ev.team_id).eq('profile_id', profile!.id).maybeSingle(),
       supabase.rpc('away_athletes', { p_event_id: id }),
+      ev.location_name
+        ? supabase.from('team_places').select('*').eq('team_id', ev.team_id).ilike('name', ev.location_name).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
     setMyRole((me as { role: TeamRole } | null)?.role ?? null);
     setAwayIds(aw ?? []);
+    setPlace((pl as TeamPlace | null) ?? null);
+    await writeCache<EventSnapshot>(`event.${id}`, {
+      event: ev as Event,
+      team: tm as Team,
+      offers: of ?? [],
+      requests: rq ?? [],
+      slots: sl ?? [],
+      roster: (ta ?? []).map((r) => r.athlete),
+      rsvps: rs ?? [],
+      place: (pl as TeamPlace | null) ?? null,
+    });
     setTeam(tm as Team);
     setOffers(of ?? []);
     setRequests(rq ?? []);
@@ -138,7 +187,7 @@ export default function EventScreen() {
       .from('carpool_offers')
       .insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
     if (error) return toast(error.message, { tone: 'error' });
-    setOfferForm({ open: false, seats: '2', direction: 'both', note: '' });
+    setOfferForm({ open: false, seats: '2', direction: 'both', note: '', repeat: false });
     toast(`You're driving · ${seats} ${seats === 1 ? 'seat' : 'seats'} open`);
   }
 
@@ -257,6 +306,23 @@ export default function EventScreen() {
     );
   }
 
+  async function announceDeparture(offer: CarpoolOffer, minutes: number) {
+    const { error } = await supabase.rpc('announce_departure', { p_offer_id: offer.id, p_minutes: minutes });
+    if (error) return toast(error.message, { tone: 'error' });
+    toast(minutes ? `Told the team you leave in ${minutes} min` : 'Told the team you are leaving');
+
+    // The record is in the app; the message that actually reaches a phone today is a text.
+    const numbers = requests
+      .filter((r) => r.offer_id === offer.id && r.status === 'matched')
+      .map((r) => r.requester?.phone)
+      .filter((n): n is string => !!n)
+      .map((n) => n.replace(/[^\d+]/g, ''));
+    if (!numbers.length) return;
+    const body = encodeURIComponent(minutes ? `Leaving in about ${minutes} minutes for ${event!.title}.` : `Leaving now for ${event!.title}.`);
+    const to = numbers.join(',');
+    Linking.openURL(Platform.OS === 'ios' ? `sms:${to}&body=${body}` : `sms:${to}?body=${body}`).catch(() => {});
+  }
+
   async function nudge() {
     if (!event || !unanswered.length) return;
     setNudging(true);
@@ -271,12 +337,6 @@ export default function EventScreen() {
     setNudging(false);
     if (error) return toast(error.message, { tone: 'error' });
     toast('Posted in team chat');
-  }
-
-  function openMaps() {
-    const q = encodeURIComponent(event!.location_address || event!.location_name || '');
-    const url = Platform.select({ ios: `maps:0,0?q=${q}`, default: `https://www.google.com/maps/search/?api=1&query=${q}` });
-    Linking.openURL(url!);
   }
 
   return (
@@ -337,6 +397,8 @@ export default function EventScreen() {
         </Card>
       ) : null}
 
+      {staleAt ? <OfflineNote at={staleAt} /> : null}
+
       <Card raised style={{ marginTop: space.lg, gap: space.md }}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
@@ -349,19 +411,6 @@ export default function EventScreen() {
           </View>
           <Chip label={`Arrive by ${timeLabel(arriveAt)}`} tone="accent" />
         </Row>
-        {event.location_name || event.location_address ? (
-          <Pressable onPress={openMaps} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-            <Row gap={10}>
-              <PinIcon color={t.accent} size={20} />
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyMedium">{event.location_name ?? event.location_address}</Text>
-                <Text variant="small" color="muted">
-                  {event.location_address && event.location_name ? event.location_address : 'Tap for directions'}
-                </Text>
-              </View>
-            </Row>
-          </Pressable>
-        ) : null}
         {event.notes ? (
           <Text variant="small" color="muted">
             {event.notes}
@@ -373,6 +422,16 @@ export default function EventScreen() {
           </Text>
         ) : null}
       </Card>
+
+      <GettingThere
+        teamId={event.team_id}
+        locationName={event.location_name}
+        locationAddress={event.location_address}
+        place={place}
+        isStaff={isStaff}
+        createdBy={profile!.id}
+        onSaved={load}
+      />
 
       {/* ---------- Score ---------- */}
       {event.type === 'game' || event.type === 'tournament' ? (
@@ -521,6 +580,9 @@ export default function EventScreen() {
         cancelOffer={cancelOffer}
         takeRider={takeRider}
         releaseRider={releaseRider}
+        announceDeparture={announceDeparture}
+        weekdayName={format(start, 'EEEE')}
+        eventTypeWord={event.type === 'game' ? 'game' : event.type === 'tournament' ? 'tournament' : 'practice'}
       />
 
       <SignupBoard profile={profile} slots={slots} slotForm={slotForm} setSlotForm={setSlotForm} addSlot={addSlot} claim={claim} />

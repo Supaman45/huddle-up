@@ -1,0 +1,10 @@
+-- Applied live via MCP as migration `team_places`.
+--
+-- A park address drops a parent at the entrance, not the field, and "Field 4" means nothing
+-- to someone who has never been. team_places is keyed on (team_id, lower(name)) against the
+-- location name the schedule already carries, so a coach fills in the pin, the parking and
+-- what to bring ONCE and every future event at that field inherits it, including events the
+-- hourly TeamSnap import creates next month.
+--
+-- Staff write, members read. The map_url is a link the coach pasted rather than a geocode,
+-- which needs no API key and is more accurate than any geocoder for "the far field".

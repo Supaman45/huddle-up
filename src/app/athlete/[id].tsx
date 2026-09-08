@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Animated, Image, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { BallIcon, HomeIcon } from '@/components/icons';
-import { Avatar, BackLink, Card, Chip, Divider, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { Avatar, BackLink, Button, Card, Chip, Divider, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { useAnimatedValue } from '@/lib/animation';
 import { STATS, statDef, summaryLine } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
@@ -272,6 +272,15 @@ export default function PlayerCard() {
           </Text>
         </>
       ) : null}
+
+      {/* ---------- Recap ---------- */}
+      <View style={{ marginTop: space.xl }}>
+        <Button
+          title="Season recap card"
+          kind="secondary"
+          onPress={() => router.push({ pathname: '/athlete/recap', params: { id } })}
+        />
+      </View>
 
       {/* ---------- What Family Plus adds ---------- */}
       <SectionHeader title="Family Plus" />

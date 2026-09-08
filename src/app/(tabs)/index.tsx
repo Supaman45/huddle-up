@@ -7,13 +7,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EventCard } from '@/components/event-card';
 import { BellIcon } from '@/components/icons';
 import { MonthGrid } from '@/components/month-grid';
+import { OfflineNote } from '@/components/offline-note';
 import { Avatar, Button, Chip, Empty, Glow, Loading, Row, Segments, Stack, Text } from '@/components/ui';
+import { readCache, writeCache } from '@/lib/cache';
 import { headline } from '@/lib/headline';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { MyEvent } from '@/lib/types';
 import { useSession } from '@/providers/session';
+
+const CACHE_KEY = 'my-events';
 
 export default function ThisWeek() {
   const { profile, athletes } = useSession();
@@ -24,6 +28,7 @@ export default function ThisWeek() {
   const [refreshing, setRefreshing] = useState(false);
   const [teamCount, setTeamCount] = useState<number | null>(null);
   const [news, setNews] = useState(0);
+  const [staleAt, setStaleAt] = useState<number | null>(null);
   const [kidFilter, setKidFilter] = useState<string | null>(null);
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [month, setMonth] = useState(() => new Date());
@@ -33,15 +38,40 @@ export default function ThisWeek() {
     if (!profile) return;
     const from = addMonths(startOfDay(new Date()), -2);
     const to = addMonths(from, 14);
-    const [{ data }, { count }, { data: unread }] = await Promise.all([
+
+    // Fields have one bar. Show what we saw last, immediately, then correct it.
+    if (events === null) {
+      const cached = await readCache<MyEvent[]>(CACHE_KEY);
+      if (cached) {
+        setEvents(cached.value);
+        setTeamCount(cached.value.length ? 1 : 0);
+      }
+    }
+
+    const [{ data, error }, { count }, { data: unread }] = await Promise.all([
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.from('team_members').select('*', { count: 'exact', head: true }).eq('profile_id', profile.id),
       supabase.rpc('unread_activity'),
     ]);
-    setEvents((data as MyEvent[]) ?? []);
+
+    if (error) {
+      // Keep whatever is on screen and say how old it is, rather than blanking the schedule
+      // in the one moment a parent needs it.
+      const cached = await readCache<MyEvent[]>(CACHE_KEY);
+      if (cached) {
+        setEvents(cached.value);
+        setStaleAt(cached.at);
+      }
+      return;
+    }
+
+    const rows = (data as MyEvent[]) ?? [];
+    setStaleAt(null);
+    setEvents(rows);
     setTeamCount(count ?? 0);
     setNews((unread as number) ?? 0);
-  }, [profile]);
+    await writeCache(CACHE_KEY, rows);
+  }, [profile, events]);
 
   useFocusEffect(
     useCallback(() => {
@@ -107,6 +137,7 @@ export default function ThisWeek() {
         <Text color="muted" style={{ marginTop: 6 }}>
           {h.sub}
         </Text>
+        {staleAt ? <OfflineNote at={staleAt} /> : null}
 
         {athletes.length > 1 ? (
           <Row style={{ marginTop: space.lg, flexWrap: 'wrap' }}>

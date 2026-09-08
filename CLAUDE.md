@@ -10,6 +10,12 @@ Youth sports team app. Free to the team forever; households pay for Family Plus;
 - The `activity` table is written ONLY by SECURITY DEFINER triggers. Clients read it through
   `my_activity` / `unread_activity` and never insert. See `docs/activity-and-carpool.md`.
 
+## Checks
+`npm run check` is the gate: typecheck, lint, tests. Run it before every commit.
+`src/lib/database.types.ts` is GENERATED. After any migration, regenerate it:
+`npx supabase gen types typescript --project-id ftaxrqwsscitsqrqedxm > src/lib/database.types.ts`
+Everything in `src/lib/types.ts` derives from it; never restate a column by hand.
+
 ## Conventions
 - UI primitives in `src/components/ui`. Tokens in `src/lib/theme.ts` (turf green accent, cone orange for ride alerts only).
 - Copy is written from the parent's side: "I can drive", "needs a ride", "I've got it". No system jargon.
@@ -21,6 +27,10 @@ Youth sports team app. Free to the team forever; households pay for Family Plus;
   `is_household_*`) MUST keep EXECUTE for `authenticated` — policies run as the caller.
 - Data rules: children shown as first name + last initial only; adult phone numbers visible only within a shared team; media_consent defaults to household.
 - Read https://docs.expo.dev/versions/v57.0.0/ before touching native modules.
+- Every new SECURITY DEFINER function must (a) revoke EXECUTE from `anon` and (b) gate on
+  `is_team_member` / `is_household_member` INSIDE the body. Passing a foreign id is the
+  attack. Run `get_advisors` after any migration that adds one.
+- Pure logic belongs in `src/lib` where it can be tested, not inside a component.
 
 ## Run
 ```

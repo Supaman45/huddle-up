@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict } from 'date-fns';
-import { Linking, Pressable, View } from 'react-native';
+import { Linking, Pressable, Switch, View } from 'react-native';
 
 import { CarIcon } from '@/components/icons';
 import { Avatar, Button, Card, Chip, Divider, Input, Row, SectionHeader, Stack, Text } from '@/components/ui';
@@ -13,6 +13,8 @@ export interface OfferForm {
   seats: string;
   direction: RideDirection;
   note: string;
+  /** Repeat this car for every event like this one, every week. */
+  repeat: boolean;
 }
 
 interface Props {
@@ -34,6 +36,11 @@ interface Props {
   cancelOffer: (offerId: string) => void;
   takeRider: (request: CarpoolRequest, offer: CarpoolOffer) => void;
   releaseRider: (request: CarpoolRequest) => void;
+  announceDeparture: (offer: CarpoolOffer, minutes: number) => void;
+  /** Lowercase day name for this event, e.g. "Tuesday". */
+  weekdayName: string;
+  /** "practice" or "game", for the repeat copy. */
+  eventTypeWord: string;
 }
 
 export function CarpoolBoard({
@@ -55,6 +62,9 @@ export function CarpoolBoard({
   cancelOffer,
   takeRider,
   releaseRider,
+  announceDeparture,
+  weekdayName,
+  eventTypeWord,
 }: Props) {
   const t = useTheme();
   return (
@@ -199,9 +209,20 @@ export function CarpoolBoard({
               value={offerForm.note}
               onChangeText={(v) => setOfferForm((f) => ({ ...f, note: v }))}
             />
+            {/* The same parent drives to the same practice every week. Asking them thirty
+                times a season is why carpool threads die by October. */}
+            <Row style={{ justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, paddingRight: space.md }}>
+                <Text variant="bodyMedium">Every {weekdayName}</Text>
+                <Text variant="small" color="muted">
+                  Post this car for every {eventTypeWord} on this day, this season.
+                </Text>
+              </View>
+              <Switch value={offerForm.repeat} onValueChange={(v) => setOfferForm((f) => ({ ...f, repeat: v }))} trackColor={{ true: t.accent }} />
+            </Row>
             <Row>
               <View style={{ flex: 1 }}>
-                <Button title="Post ride" onPress={offerRide} />
+                <Button title={offerForm.repeat ? 'Post every week' : 'Post ride'} onPress={offerRide} />
               </View>
               <Button title="Cancel" kind="ghost" onPress={() => setOfferForm((f) => ({ ...f, open: false }))} />
             </Row>
@@ -228,6 +249,18 @@ export function CarpoolBoard({
                 </Row>
                 {isMine ? <Chip label="Cancel ride" onPress={() => cancelOffer(o.id)} /> : full ? <Chip label="Full" /> : null}
               </Row>
+              {/* The message a carpool needs and nobody sends, because sending it means
+                  finding three phone numbers while holding car keys. */}
+              {isMine && riders.length ? (
+                <Row style={{ marginTop: space.md }} gap={space.sm}>
+                  <View style={{ flex: 1 }}>
+                    <Button title="Leaving now" size="sm" onPress={() => announceDeparture(o, 0)} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button title="10 min out" kind="secondary" size="sm" onPress={() => announceDeparture(o, 10)} />
+                  </View>
+                </Row>
+              ) : null}
               {o.pickup_note ? (
                 <Text variant="small" style={{ marginTop: space.sm }}>
                   {o.pickup_note}

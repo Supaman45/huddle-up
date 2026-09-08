@@ -1,0 +1,13 @@
+-- Applied live via MCP as migrations `recurring_rides`, `ride_departure_ping`
+-- and `ride_departure_function`.
+--
+-- ride_patterns holds "I drive to Tuesday practice", and apply_ride_patterns() materializes
+-- it into ordinary carpool_offers rows, so every existing count, match and screen keeps
+-- working on plain data. It never touches an event where that driver already has an offer,
+-- so a one-off change a parent made by hand always beats the pattern. A pg_cron job runs it
+-- at :20, thirteen minutes after the calendar sync, so a game imported at :07 has its
+-- regular drivers before anyone opens the app.
+--
+-- announce_departure(offer, minutes) writes the 'ride_leaving' activity row. Clients never
+-- insert into activity, so this is the door. The app pairs it with a prefilled text to the
+-- riders' parents, which is the thing that actually reaches a phone today.

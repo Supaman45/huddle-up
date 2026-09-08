@@ -9,3 +9,8 @@
 --
 -- my_events.unanswered now excludes anyone with a covering range, and my_events returns
 -- away_ids for this parent's own kids. A family who already answered is not a chase.
+
+-- Amended by migration `away_athletes_lockdown`: the first version of away_athletes was
+-- reachable by anon AND never checked team membership, so any signed-in user could pass an
+-- arbitrary event id and learn which athletes were away. Both closed; verified by a test
+-- that calls it as a member and as a non-member of the same event's team.

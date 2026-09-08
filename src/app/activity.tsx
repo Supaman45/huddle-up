@@ -13,6 +13,7 @@ function iconFor(kind: ActivityKind, color: string, size = 18) {
   switch (kind) {
     case 'ride_needed':
     case 'ride_filled':
+    case 'ride_leaving':
       return <CarIcon color={color} size={size} />;
     case 'slot_claimed':
       return <SnackIcon color={color} size={size} />;
@@ -31,7 +32,7 @@ function iconFor(kind: ActivityKind, color: string, size = 18) {
 // an open seat. Everything else is calm.
 function toneFor(kind: ActivityKind): 'signal' | 'accent' | 'plain' {
   if (kind === 'event_changed' || kind === 'event_cancelled' || kind === 'ride_needed') return 'signal';
-  if (kind === 'ride_filled' || kind === 'game_final') return 'accent';
+  if (kind === 'ride_filled' || kind === 'game_final' || kind === 'ride_leaving') return 'accent';
   return 'plain';
 }
 

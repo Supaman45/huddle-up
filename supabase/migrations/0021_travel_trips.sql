@@ -1,0 +1,11 @@
+-- Applied live via MCP as migration `travel_trips`.
+--
+-- A tournament is one thing to a family -- pack Friday, drive, two nights, five games,
+-- drive home -- and eleven unrelated calendar entries to the app. trips is the container.
+--
+-- Events are NOT moved into a trip. trip_events(trip) matches them by team and date range
+-- in the team's timezone, so a game the hourly TeamSnap sync creates next week joins the
+-- trip on its own, and deleting a trip never orphans a game.
+--
+-- trip_attendance is per athlete per trip, written by that kid's household, read by the
+-- team, so a manager can hold rooms from real numbers instead of a spreadsheet.

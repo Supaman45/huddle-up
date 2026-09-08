@@ -23,6 +23,10 @@ export type Team = Tables<'teams'>;
 export type Event = Tables<'events'>;
 export type Game = Tables<'games'>;
 export type AwayRange = Tables<'athlete_away'>;
+export type RidePattern = Tables<'ride_patterns'>;
+export type TeamPlace = Tables<'team_places'>;
+export type Trip = Tables<'trips'>;
+export type TripRosterRow = FnReturns<'trip_roster'>;
 
 // Rows that arrive with a joined relation. The join is a PostgREST select string, not
 // something the schema types know about, so the extra fields are declared here.
@@ -40,6 +44,7 @@ export type CardRow = FnReturns<'athlete_card'>;
 export type ActivityRow = FnReturns<'my_activity'>;
 export type TeamRecord = FnReturns<'team_record'>;
 export type LeaderRow = FnReturns<'team_leaders'>;
+export type SeenBy = FnReturns<'message_seen_by'>;
 
 /**
  * The generated types describe a function's OUT columns as non-null, which Postgres does
