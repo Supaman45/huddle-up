@@ -36,6 +36,10 @@ export default function EventScreen() {
   const router = useRouter();
   const t = useTheme();
   const { profile, athletes } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const toast = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -156,13 +160,14 @@ export default function EventScreen() {
   }
 
   async function setRsvp(athleteId: string, status: RsvpStatus) {
+    if (!uid) return;
     const current = rsvps.find((r) => r.athlete_id === athleteId);
     if (current?.status === status) {
       await supabase.from('rsvps').delete().eq('event_id', id).eq('athlete_id', athleteId);
     } else {
       const { error } = await supabase
         .from('rsvps')
-        .upsert({ event_id: id, athlete_id: athleteId, status, set_by: profile!.id, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
+        .upsert({ event_id: id, athlete_id: athleteId, status, set_by: uid, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
       if (error) toast(error.message, { tone: 'error' });
       else {
         const kid = athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid';
@@ -173,11 +178,12 @@ export default function EventScreen() {
   }
 
   async function offerRide() {
+    if (!uid) return;
     const seats = Number(offerForm.seats);
     if (!seats || seats < 1) return Alert.alert('How many seats can you take?');
     const { error } = await supabase
       .from('carpool_offers')
-      .insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
+      .insert({ event_id: id, driver_id: uid, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
     if (error) return toast(error.message, { tone: 'error' });
     setOfferForm({ open: false, seats: '2', direction: 'both', note: '', repeat: false });
     toast(`You're driving · ${seats} ${seats === 1 ? 'seat' : 'seats'} open`);
@@ -190,7 +196,8 @@ export default function EventScreen() {
   }
 
   async function requestRide(athleteId: string) {
-    const { error } = await supabase.from('carpool_requests').insert({ event_id: id, athlete_id: athleteId, requested_by: profile!.id, direction: 'both' });
+    if (!uid) return;
+    const { error } = await supabase.from('carpool_requests').insert({ event_id: id, athlete_id: athleteId, requested_by: uid, direction: 'both' });
     if (error && !error.message.includes('duplicate')) return toast(error.message, { tone: 'error' });
     const kid = athletes.find((a) => a.id === athleteId)?.first_name ?? 'Kid';
     toast(`Ride requested for ${kid}. Drivers on the team can see it now.`);
@@ -214,22 +221,24 @@ export default function EventScreen() {
   }
 
   async function addSlot() {
+    if (!uid) return;
     if (!slotForm.title.trim()) return Alert.alert('Name the slot, like "Orange slices" or "Line the field".');
     const { error } = await supabase
       .from('signup_slots')
-      .insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: profile!.id });
+      .insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: uid });
     if (error) return toast(error.message, { tone: 'error' });
     setSlotForm({ open: false, title: '', kind: 'snack', needed: '1' });
     toast('Slot added. The team can claim it now.');
   }
 
   async function claim(slot: SignupSlot) {
+    if (!uid) return;
     const mine = slot.claims?.find((c) => c.profile_id === profile?.id);
     if (mine) {
       await supabase.from('signup_claims').delete().eq('id', mine.id);
       toast(`You're off ${slot.title}`, { tone: 'signal' });
     } else {
-      await supabase.from('signup_claims').insert({ slot_id: slot.id, profile_id: profile!.id });
+      await supabase.from('signup_claims').insert({ slot_id: slot.id, profile_id: uid });
       toast(`You've got ${slot.title}. We'll remind you the day before.`);
     }
   }
@@ -316,13 +325,14 @@ export default function EventScreen() {
   }
 
   async function nudge() {
+    if (!uid) return;
     if (!event || !unanswered.length) return;
     setNudging(true);
     const when = `${dayLabel(new Date(event.starts_at))} ${timeLabel(new Date(event.starts_at))}`;
     const names = unanswered.map((a) => a.first_name).join(', ');
     const { error } = await supabase.from('messages').insert({
       team_id: event.team_id,
-      author_id: profile!.id,
+      author_id: uid,
       event_id: event.id,
       body: `Still need a yes or no for ${event.title}, ${when}. Waiting on: ${names}. Tap the event and tick Going or Out.`,
     });
@@ -421,7 +431,7 @@ export default function EventScreen() {
         locationAddress={event.location_address}
         place={place}
         isStaff={isStaff}
-        createdBy={profile!.id}
+        createdBy={uid ?? ''}
         onSaved={load}
       />
 

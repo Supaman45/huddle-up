@@ -26,6 +26,10 @@ export default function TeamChat() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const [team, setTeam] = useState<Team | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -74,12 +78,13 @@ export default function TeamChat() {
   }, [id]);
 
   async function send(imagePath?: string) {
+    if (!uid) return;
     const body = text.trim();
     if (!body && !imagePath) return;
     setSending(true);
     const { error } = await supabase
       .from('messages')
-      .insert({ team_id: id, author_id: profile!.id, body: body || null, image_path: imagePath ?? null, important });
+      .insert({ team_id: id, author_id: uid, body: body || null, image_path: imagePath ?? null, important });
     setSending(false);
     if (error) return Alert.alert('Could not send', error.message);
     setText('');
@@ -116,9 +121,10 @@ export default function TeamChat() {
   }
 
   async function react(m: Message, emoji: string) {
+    if (!uid) return;
     const mine = m.reactions?.find((r) => r.profile_id === profile?.id && r.emoji === emoji);
-    if (mine) await supabase.from('message_reactions').delete().eq('message_id', m.id).eq('profile_id', profile!.id).eq('emoji', emoji);
-    else await supabase.from('message_reactions').insert({ message_id: m.id, profile_id: profile!.id, emoji });
+    if (mine) await supabase.from('message_reactions').delete().eq('message_id', m.id).eq('profile_id', uid).eq('emoji', emoji);
+    else await supabase.from('message_reactions').insert({ message_id: m.id, profile_id: uid, emoji });
   }
 
   function renderItem({ item: m }: { item: Message }) {

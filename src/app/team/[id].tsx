@@ -33,6 +33,10 @@ export default function TeamSpace() {
   const router = useRouter();
   const t = useTheme();
   const { profile, athletes } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const toast = useToast();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -281,7 +285,7 @@ export default function TeamSpace() {
       {/* ---------- Season ---------- */}
       {tab === 'schedule' ? (
         <View style={{ marginTop: space.xl }}>
-          <Trips teamId={id} isStaff={isStaff} createdBy={profile!.id} />
+          {uid ? <Trips teamId={id} isStaff={isStaff} createdBy={uid} /> : null}
         </View>
       ) : null}
 
@@ -382,7 +386,8 @@ export default function TeamSpace() {
                     text: 'Leave',
                     style: 'destructive',
                     onPress: async () => {
-                      await supabase.from('team_members').delete().eq('team_id', id).eq('profile_id', profile!.id);
+                      if (!uid) return;
+                      await supabase.from('team_members').delete().eq('team_id', id).eq('profile_id', uid);
                       router.replace('/(tabs)/teams');
                     },
                   },

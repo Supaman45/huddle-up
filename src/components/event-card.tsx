@@ -59,37 +59,39 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
         padding: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 3] }),
       }}>
       <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10, opacity: ev.cancelled ? 0.6 : 1 }}>
-      <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ gap: 10, opacity: pressed ? 0.85 : 1 })}>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="mono" color={hero ? 'accent' : 'muted'}>
-              {rangeLabel(start, end).toUpperCase()}
-            </Text>
-            <Text variant={hero ? 'h1' : 'h2'} style={{ textDecorationLine: ev.cancelled ? 'line-through' : 'none' }}>
-              {ev.title}
-            </Text>
-            <Text variant="small" color="muted">
-              {ev.team_name}
-              {ev.location_name ? ` · ${ev.location_name}` : ''}
-            </Text>
-          </View>
-          {ev.cancelled ? (
-            <Chip label="Cancelled" tone="signal" />
-          ) : state === 'waiting' ? (
-            <Chip label="Needs ride" tone="signal" onPress={toCarpool} />
-          ) : state === 'can_help' ? (
-            <Chip label={`${ev.open_requests} need ${ev.open_requests === 1 ? 'a ride' : 'rides'}`} tone="signal" onPress={toCarpool} />
-          ) : state === 'matched' ? (
-            <Chip label={ev.ride_driver ? `With ${ev.ride_driver.split(' ')[0]}` : 'Ride set'} tone="accent" onPress={toCarpool} />
-          ) : state === 'driving_open' || state === 'driving_full' ? (
-            <Chip label="Driving" tone="accent" onPress={toCarpool} />
-          ) : ev.type === 'game' ? (
-            <Chip label={`Arrive ${timeLabel(arriveAt)}`} tone="accent" />
-          ) : (
-            <Chip label={typeLabel[ev.type]} tone="accent" />
-          )}
-        </Row>
+      {/* The pill is its own control, beside the tappable title rather than inside it: a button
+          inside a button is invalid on the web and ambiguous under a thumb. */}
+      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ flex: 1, gap: 2, opacity: pressed ? 0.85 : 1 })}>
+          <Text variant="mono" color={hero ? 'accent' : 'muted'}>
+            {rangeLabel(start, end).toUpperCase()}
+          </Text>
+          <Text variant={hero ? 'h1' : 'h2'} style={{ textDecorationLine: ev.cancelled ? 'line-through' : 'none' }}>
+            {ev.title}
+          </Text>
+          <Text variant="small" color="muted">
+            {ev.team_name}
+            {ev.location_name ? ` · ${ev.location_name}` : ''}
+          </Text>
+        </Pressable>
+        {ev.cancelled ? (
+          <Chip label="Cancelled" tone="signal" />
+        ) : state === 'waiting' ? (
+          <Chip label="Needs ride" tone="signal" onPress={toCarpool} />
+        ) : state === 'can_help' ? (
+          <Chip label={`${ev.open_requests} need ${ev.open_requests === 1 ? 'a ride' : 'rides'}`} tone="signal" onPress={toCarpool} />
+        ) : state === 'matched' ? (
+          <Chip label={ev.ride_driver ? `With ${ev.ride_driver.split(' ')[0]}` : 'Ride set'} tone="accent" onPress={toCarpool} />
+        ) : state === 'driving_open' || state === 'driving_full' ? (
+          <Chip label="Driving" tone="accent" onPress={toCarpool} />
+        ) : ev.type === 'game' ? (
+          <Chip label={`Arrive ${timeLabel(arriveAt)}`} tone="accent" />
+        ) : (
+          <Chip label={typeLabel[ev.type]} tone="accent" />
+        )}
+      </Row>
 
+      <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ gap: 10, opacity: pressed ? 0.85 : 1 })}>
         <View style={{ height: 1, backgroundColor: t.lineStrong }} />
 
         <Row style={{ justifyContent: 'space-between' }}>

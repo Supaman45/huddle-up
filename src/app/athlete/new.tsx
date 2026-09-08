@@ -11,6 +11,7 @@ export default function NewAthlete() {
   const router = useRouter();
   const t = useTheme();
   const { household, athletes, refresh } = useSession();
+  const hid = household?.id ?? null;
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [year, setYear] = useState('');
@@ -19,10 +20,11 @@ export default function NewAthlete() {
   const [error, setError] = useState<string | null>(null);
 
   async function save() {
+    if (!hid) return;
     if (!first.trim()) return setError('First name is required.');
     setBusy(true);
     const { error: e } = await supabase.from('athletes').insert({
-      household_id: household!.id,
+      household_id: hid,
       first_name: first.trim(),
       last_initial: last.trim().slice(0, 1).toUpperCase(),
       birth_year: year ? Number(year) : null,

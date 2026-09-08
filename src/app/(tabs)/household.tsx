@@ -28,6 +28,10 @@ const feedUrl = (token: string, scheme: 'https' | 'webcal' = 'https') =>
 
 export default function HouseholdScreen() {
   const { household, athletes, profile, refresh } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [icsToken, setIcsToken] = useState<string | null>(null);
@@ -50,8 +54,8 @@ export default function HouseholdScreen() {
   );
 
   async function invite() {
-    if (!household) return;
-    const { data, error } = await supabase.from('household_invites').insert({ household_id: household.id, created_by: profile!.id }).select('code').single();
+    if (!household || !uid) return;
+    const { data, error } = await supabase.from('household_invites').insert({ household_id: household.id, created_by: uid }).select('code').single();
     if (error) return Alert.alert('Could not create invite', error.message);
     const msg = `Join our household on Huddle Up so you can see the kids' schedules and carpools. Open the app and enter household code ${data.code}. Link: huddleup://household/${data.code}`;
     try {
@@ -120,9 +124,11 @@ export default function HouseholdScreen() {
             <Text variant="small" color="muted" style={{ marginTop: space.sm }}>
               Tap the photo setting to change who can see pictures of {a.first_name}. Private to household is the default.
             </Text>
-            <View style={{ marginTop: space.md }}>
-              <AwayDates athlete={a} createdBy={profile!.id} />
-            </View>
+            {uid ? (
+              <View style={{ marginTop: space.md }}>
+                <AwayDates athlete={a} createdBy={uid} />
+              </View>
+            ) : null}
           </Card>
         ))}
       </Stack>

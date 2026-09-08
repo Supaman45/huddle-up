@@ -20,6 +20,10 @@ const DEFAULT_PREFS: Prefs = { reminders: true, schedule_changes: true, carpool:
 
 export default function Me() {
   const { profile, refresh, signOut } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const router = useRouter();
   const toast = useToast();
   const t = useTheme();
@@ -46,13 +50,14 @@ export default function Me() {
   }, [loadPrefs]);
 
   async function save() {
+    if (!uid) return;
     setSaving(true);
     const [{ error: profileErr }, { error: prefsErr }] = await Promise.all([
       supabase
         .from('profiles')
         .update({ full_name: name.trim(), phone: phone.trim() || null })
-        .eq('id', profile!.id),
-      supabase.from('notification_prefs').upsert({ profile_id: profile!.id, athlete_id: null, event_type: null, ...prefs }, { onConflict: 'profile_id,athlete_id,event_type' }),
+        .eq('id', uid),
+      supabase.from('notification_prefs').upsert({ profile_id: uid, athlete_id: null, event_type: null, ...prefs }, { onConflict: 'profile_id,athlete_id,event_type' }),
     ]);
     setSaving(false);
     const failure = profileErr ?? prefsErr;

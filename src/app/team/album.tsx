@@ -27,6 +27,10 @@ export default function Album() {
   const t = useTheme();
   const { width } = useWindowDimensions();
   const { profile, athletes } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const toast = useToast();
 
   const [team, setTeam] = useState<Team | null>(null);
@@ -71,6 +75,7 @@ export default function Album() {
   const taggable = useMemo(() => roster.filter((a) => a.media_consent !== 'household' || athletes.some((mine) => mine.id === a.id)), [roster, athletes]);
 
   async function add() {
+    if (!uid) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) return toast('Allow photo access in Settings to add pictures.', { tone: 'error' });
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.75, allowsMultipleSelection: true, selectionLimit: 10, exif: false });
@@ -83,7 +88,7 @@ export default function Album() {
         const blob = await (await fetch(asset.uri)).blob();
         const { error: upErr } = await supabase.storage.from('team-media').upload(path, blob, { contentType: asset.mimeType ?? 'image/jpeg' });
         if (upErr) throw upErr;
-        const { error } = await supabase.from('media').insert({ team_id: id, storage_path: path, uploaded_by: profile!.id });
+        const { error } = await supabase.from('media').insert({ team_id: id, storage_path: path, uploaded_by: uid });
         if (error) throw error;
         ok += 1;
       } catch (e) {

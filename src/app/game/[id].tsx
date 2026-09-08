@@ -20,6 +20,10 @@ export default function Scorekeeper() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const toast = useToast();
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -103,6 +107,7 @@ export default function Scorekeeper() {
   }
 
   async function tap(statKey: string) {
+    if (!uid) return;
     if (!pickedAthlete || !game) return;
     const def = statDef(sport, statKey);
     const { error } = await supabase.from('stat_events').insert({
@@ -111,7 +116,7 @@ export default function Scorekeeper() {
       stat_type: statKey,
       points: def?.points ?? 0,
       period: game.period,
-      recorded_by: profile!.id,
+      recorded_by: uid,
     });
     if (error) return toast(error.message, { tone: 'error' });
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});

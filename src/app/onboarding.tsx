@@ -18,6 +18,10 @@ const thisYear = new Date().getFullYear();
 
 export default function Onboarding() {
   const { profile, refresh } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const router = useRouter();
   const t = useTheme();
   const [name, setName] = useState(profile?.full_name ?? '');
@@ -31,13 +35,14 @@ export default function Onboarding() {
   }
 
   async function finish() {
+    if (!uid) return;
     const validKids = kids.filter((k) => k.first_name.trim());
     if (!name.trim()) return setError('Add your name so the team knows who is driving.');
     if (!validKids.length) return setError('Add at least one kid.');
     setBusy(true);
     setError(null);
     try {
-      await supabase.from('profiles').update({ full_name: name.trim() }).eq('id', profile!.id);
+      await supabase.from('profiles').update({ full_name: name.trim() }).eq('id', uid);
       const hh = householdName.trim() || `${name.trim().split(' ').pop()} family`;
       const { data: hid, error: e1 } = await supabase.rpc('create_household', { p_name: hh });
       if (e1) throw e1;

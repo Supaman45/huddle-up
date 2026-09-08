@@ -27,6 +27,10 @@ export default function TripScreen() {
   const t = useTheme();
   const toast = useToast();
   const { profile, athletes } = useSession();
+  // Read once, with optional chaining. The React Compiler hoists property reads out of
+  // callbacks as memo dependencies, so `profile!.id` inside a handler is evaluated during
+  // render, and on a deep link that happens before the session has resolved: null.id, crash.
+  const uid = profile?.id ?? null;
   const [trip, setTrip] = useState<Trip | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [roster, setRoster] = useState<TripRosterRow[]>([]);
@@ -58,8 +62,9 @@ export default function TripScreen() {
   useLive(load);
 
   async function setGoing(athlete: Athlete, going: boolean) {
+    if (!uid) return;
     const { error } = await supabase.from('trip_attendance').upsert(
-      { trip_id: id, athlete_id: athlete.id, going, adults: going ? 1 : 0, nights: going ? 1 : 0, set_by: profile!.id, updated_at: new Date().toISOString() },
+      { trip_id: id, athlete_id: athlete.id, going, adults: going ? 1 : 0, nights: going ? 1 : 0, set_by: uid, updated_at: new Date().toISOString() },
       { onConflict: 'trip_id,athlete_id' },
     );
     if (error) return toast(error.message, { tone: 'error' });

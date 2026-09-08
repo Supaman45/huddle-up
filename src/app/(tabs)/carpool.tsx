@@ -233,7 +233,8 @@ function EventBoard({
   const waiting = openAsks(ev);
   const mine = myCars(ev);
   const iHaveRoom = mine.some((c) => seatsLeft(c) > 0);
-  const askable = askableAthleteIds(ev);
+  // A parent with a car on this event does not need a seat for their own kid.
+  const askable = mine.length ? [] : askableAthleteIds(ev);
   const rail = state === 'my_kid_waiting' || state === 'kids_waiting' ? t.signal : state === 'im_driving' || state === 'settled' ? t.accent : ev.team_color;
 
   return (
