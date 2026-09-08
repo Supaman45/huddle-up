@@ -8,7 +8,7 @@ import { CarIcon, PencilIcon, PinIcon, SnackIcon } from '@/components/icons';
 import { Avatar, Button, NavBar, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
-import { space, useTheme } from '@/lib/theme';
+import { fonts, space, useTheme } from '@/lib/theme';
 import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team, TeamRole } from '@/lib/types';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
@@ -34,6 +34,7 @@ export default function EventScreen() {
   const [myRole, setMyRole] = useState<TeamRole | null>(null);
   const [edit, setEdit] = useState<{ open: boolean; title: string; type: EventType; when: Date; minutes: string; location: string; notes: string } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [nudging, setNudging] = useState(false);
 
   const load = useCallback(async () => {
     const { data: ev } = await supabase.from('events').select('*').eq('id', id).single();
@@ -246,6 +247,22 @@ export default function EventScreen() {
     );
   }
 
+  async function nudge() {
+    if (!event || !unanswered.length) return;
+    setNudging(true);
+    const when = `${dayLabel(new Date(event.starts_at))} ${timeLabel(new Date(event.starts_at))}`;
+    const names = unanswered.map((a) => a.first_name).join(', ');
+    const { error } = await supabase.from('messages').insert({
+      team_id: event.team_id,
+      author_id: profile!.id,
+      event_id: event.id,
+      body: `Still need a yes or no for ${event.title}, ${when}. Waiting on: ${names}. Tap the event and tick Going or Out.`,
+    });
+    setNudging(false);
+    if (error) return toast(error.message, { tone: 'error' });
+    toast('Posted in team chat');
+  }
+
   function openMaps() {
     const q = encodeURIComponent(event!.location_address || event!.location_name || '');
     const url = Platform.select({ ios: `maps:0,0?q=${q}`, default: `https://www.google.com/maps/search/?api=1&query=${q}` });
@@ -417,6 +434,50 @@ export default function EventScreen() {
               ))}
             </Row>
           ) : null}
+        </>
+      ) : null}
+
+      {/* ---------- Headcount, for whoever is running the team ----------
+          A coach asks one question the night before: how many bodies am I planning for.
+          Chasing the missing answers goes through team chat, which is a channel that
+          works today, rather than a push notification that does not. */}
+      {isStaff ? (
+        <>
+          <SectionHeader title="Headcount" right={<Chip label={`${going.length}/${roster.length}`} tone={going.length >= roster.length - out.length ? 'accent' : undefined} />} />
+          <Card raised>
+            <Row style={{ justifyContent: 'space-between' }}>
+              {[
+                ['Going', going.length, t.accent],
+                ['Out', out.length, t.faint],
+                ['No answer', unanswered.length, unanswered.length ? t.signal : t.faint],
+              ].map(([label, n, c]) => (
+                <View key={label as string} style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 34, color: c as string }}>{n as number}</Text>
+                  <Text variant="label" color="faint">
+                    {label as string}
+                  </Text>
+                </View>
+              ))}
+            </Row>
+            {unanswered.length ? (
+              <>
+                <Divider />
+                <Text variant="small" color="muted" style={{ marginTop: space.md }}>
+                  Still waiting on {unanswered.map((a) => a.first_name).join(', ')}.
+                </Text>
+                <View style={{ marginTop: space.md }}>
+                  <Button title={nudging ? 'Posting' : `Nudge ${unanswered.length} ${unanswered.length === 1 ? 'family' : 'families'}`} kind="secondary" onPress={nudge} loading={nudging} />
+                </View>
+                <Text variant="small" color="faint" style={{ marginTop: space.sm }}>
+                  Posts one message in team chat. No one gets singled out in a text thread.
+                </Text>
+              </>
+            ) : (
+              <Text variant="small" color="muted" style={{ marginTop: space.md }}>
+                Everyone has answered.
+              </Text>
+            )}
+          </Card>
         </>
       ) : null}
 
