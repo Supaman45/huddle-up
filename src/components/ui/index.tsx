@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HomeIcon } from '@/components/icons';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
 
 // ---------- Text ----------
@@ -448,5 +449,23 @@ export function BackLink({ onPress, label = 'Back' }: { onPress?: () => void; la
         ‹ {label}
       </Text>
     </Pressable>
+  );
+}
+
+// ---------- Detail-screen nav: Back on the left, Home on the right ----------
+export function NavBar({ onBack, backLabel = 'Back' }: { onBack?: () => void; backLabel?: string }) {
+  const t = useTheme();
+  const router = useRouter();
+  return (
+    <Row style={{ justifyContent: 'space-between' }}>
+      <BackLink onPress={onBack} label={backLabel} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Home"
+        onPress={() => router.replace('/(tabs)')}
+        style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surfaceAlt, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+        <HomeIcon color={t.ink} size={20} />
+      </Pressable>
+    </Row>
   );
 }

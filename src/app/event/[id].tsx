@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 
 import { CarIcon, PinIcon, SnackIcon } from '@/components/icons';
-import { Avatar, BackLink, Button, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { Avatar, Button, NavBar, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
@@ -154,7 +154,7 @@ export default function EventScreen() {
 
   return (
     <Screen glow>
-      <BackLink />
+      <NavBar />
       <Row style={{ alignItems: 'stretch' }} gap={space.md}>
         <View style={{ width: 5, borderRadius: 3, backgroundColor: team.color }} />
         <View style={{ flex: 1 }}>

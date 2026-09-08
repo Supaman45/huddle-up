@@ -6,7 +6,7 @@ import { Alert, Share, View } from 'react-native';
 import { DateTimeField } from '@/components/date-time-field';
 import { EventCard } from '@/components/event-card';
 import { ChatIcon, ShareIcon, SyncIcon } from '@/components/icons';
-import { Avatar, BackLink, Button, Card, Chip, Empty, Input, ListRow, Loading, Row, Screen, SectionHeader, Segments, Stack, Text } from '@/components/ui';
+import { Avatar, Button, NavBar, Card, Chip, Empty, Input, ListRow, Loading, Row, Screen, SectionHeader, Segments, Stack, Text } from '@/components/ui';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel, useTheme } from '@/lib/theme';
@@ -120,7 +120,7 @@ export default function TeamSpace() {
 
   return (
     <Screen glow>
-      <BackLink />
+      <NavBar />
       <Row gap={space.md}>
         <Avatar name={team.name} color={team.color} size={52} />
         <View style={{ flex: 1 }}>

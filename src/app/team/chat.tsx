@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CameraIcon, SendIcon } from '@/components/icons';
+import { CameraIcon, HomeIcon, SendIcon } from '@/components/icons';
 import { Avatar, BackLink, Loading, Row, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { fonts, radius, space, useTheme } from '@/lib/theme';
@@ -156,7 +156,9 @@ export default function TeamChat() {
               Every adult on the team sees this
             </Text>
           </View>
-          <View style={{ width: 60 }} />
+          <Pressable onPress={() => router.replace('/(tabs)')} accessibilityLabel="Home" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <HomeIcon color={t.ink} size={20} />
+          </Pressable>
         </Row>
       </View>
       {messages === null ? (
