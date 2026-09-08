@@ -7,7 +7,7 @@ import { Avatar, Button, NavBar, Card, Chip, Divider, Input, Loading, Row, Scree
 import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
-import type { Athlete, CarpoolOffer, CarpoolRequest, Event, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team } from '@/lib/types';
+import type { Athlete, CarpoolOffer, CarpoolRequest, Event, Game, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team } from '@/lib/types';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
 
@@ -26,6 +26,7 @@ export default function EventScreen() {
   const [slots, setSlots] = useState<SignupSlot[]>([]);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [rsvps, setRsvps] = useState<Rsvp[]>([]);
+  const [game, setGame] = useState<Game | null>(null);
   const [offerForm, setOfferForm] = useState<{ open: boolean; seats: string; direction: RideDirection; note: string }>({ open: false, seats: '2', direction: 'both', note: '' });
   const [slotForm, setSlotForm] = useState<{ open: boolean; title: string; kind: SignupSlot['kind']; needed: string }>({ open: false, title: '', kind: 'snack', needed: '1' });
 
@@ -33,13 +34,14 @@ export default function EventScreen() {
     const { data: ev } = await supabase.from('events').select('*').eq('id', id).single();
     if (!ev) return;
     setEvent(ev as Event);
-    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }] = await Promise.all([
+    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }, { data: gm }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', ev.team_id).single(),
       supabase.from('carpool_offers').select('*, driver:profiles(*)').eq('event_id', id).order('created_at'),
       supabase.from('carpool_requests').select('*, athlete:athletes(*), requester:profiles(*)').eq('event_id', id).neq('status', 'cancelled').order('created_at'),
       supabase.from('signup_slots').select('*, claims:signup_claims(*, profile:profiles(*))').eq('event_id', id).order('created_at'),
       supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', ev.team_id),
       supabase.from('rsvps').select('*, athlete:athletes(*)').eq('event_id', id),
+      supabase.from('games').select('*').eq('event_id', id).maybeSingle(),
     ]);
     setTeam(tm as Team);
     setOffers((of as CarpoolOffer[]) ?? []);
@@ -47,6 +49,7 @@ export default function EventScreen() {
     setSlots((sl as SignupSlot[]) ?? []);
     setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete));
     setRsvps((rs as Rsvp[]) ?? []);
+    setGame((gm as Game) ?? null);
   }, [id]);
 
   useFocusEffect(
@@ -61,6 +64,7 @@ export default function EventScreen() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_offers', filter: `event_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_requests', filter: `event_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rsvps', filter: `event_id=eq.${id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `event_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_claims' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_slots', filter: `event_id=eq.${id}` }, load)
       .subscribe();
@@ -223,6 +227,43 @@ export default function EventScreen() {
         ) : null}
       </Card>
 
+      {/* ---------- Score ---------- */}
+      {event.type === 'game' || event.type === 'tournament' ? (
+        <Pressable onPress={() => router.push({ pathname: '/game/[id]', params: { id } })} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, marginTop: space.lg })}>
+          <Card raised rail={game?.status === 'live' ? t.signal : t.accent} style={{ paddingLeft: space.xl }}>
+            {game ? (
+              <Row style={{ justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Row gap={6}>
+                    {game.status === 'live' ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.signal }} /> : null}
+                    <Text variant="label" color={game.status === 'live' ? 'signal' : 'faint'}>
+                      {game.status === 'live' ? 'Live now' : 'Final'}
+                    </Text>
+                  </Row>
+                  <Text variant="h1" style={{ marginTop: 4 }}>
+                    {game.our_score} · {game.their_score}
+                  </Text>
+                  <Text variant="small" color="muted">
+                    {team.name} vs {game.opponent_name}
+                  </Text>
+                </View>
+                <Chip label={game.scorekeeper_id === profile?.id ? 'Keep scoring' : 'Watch'} tone="accent" />
+              </Row>
+            ) : (
+              <Row style={{ justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3">Keep score</Text>
+                  <Text variant="small" color="muted" style={{ marginTop: 2 }}>
+                    Tap players, everyone watching sees the score, stats land on their player cards.
+                  </Text>
+                </View>
+                <Chip label="Start" tone="accent" />
+              </Row>
+            )}
+          </Card>
+        </Pressable>
+      ) : null}
+
       {/* ---------- RSVP ---------- */}
       {myKidsOnTeam.length ? (
         <>
@@ -233,10 +274,12 @@ export default function EventScreen() {
               return (
                 <Card key={k.id} rail={k.color} style={{ paddingLeft: space.xl }}>
                   <Row style={{ justifyContent: 'space-between' }}>
-                    <Row>
-                      <Avatar name={k.first_name} color={k.color} size={30} />
-                      <Text variant="bodyBold">{k.first_name}</Text>
-                    </Row>
+                    <Pressable onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: k.id } })}>
+                      <Row>
+                        <Avatar name={k.first_name} color={k.color} size={30} />
+                        <Text variant="bodyBold">{k.first_name}</Text>
+                      </Row>
+                    </Pressable>
                     <Row gap={6}>
                       <Chip label="Going" selected={mine === 'going'} onPress={() => setRsvp(k.id, 'going')} />
                       <Chip label="Maybe" selected={mine === 'maybe'} onPress={() => setRsvp(k.id, 'maybe')} />

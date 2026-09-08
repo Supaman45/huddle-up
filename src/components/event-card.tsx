@@ -24,8 +24,8 @@ export function EventCard({ ev, athletes, hero = false, onChanged }: { ev: MyEve
   const unansweredMine = kids.filter((k) => !ev.my_rsvps?.[k.id]).length;
 
   return (
-    <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.88 : ev.cancelled ? 0.55 : 1 })}>
-      <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10 }}>
+    <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10, opacity: ev.cancelled ? 0.6 : 1 }}>
+      <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ gap: 10, opacity: pressed ? 0.85 : 1 })}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="mono" color={hero ? 'accent' : 'muted'}>
@@ -79,6 +79,7 @@ export function EventCard({ ev, athletes, hero = false, onChanged }: { ev: MyEve
           </Row>
         </Row>
 
+      </Pressable>
         {hero && !ev.cancelled ? (
           <Row gap={8} style={{ marginTop: 2 }}>
             <View style={{ flex: 1 }}>
@@ -94,7 +95,6 @@ export function EventCard({ ev, athletes, hero = false, onChanged }: { ev: MyEve
             </View>
           </Row>
         ) : null}
-      </Card>
-    </Pressable>
+    </Card>
   );
 }

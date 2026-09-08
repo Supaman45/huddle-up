@@ -149,3 +149,49 @@ export interface Message {
   author?: Profile;
   reactions?: { emoji: string; profile_id: string }[];
 }
+
+export type GameStatus = 'scheduled' | 'live' | 'final';
+
+export interface Game {
+  id: string;
+  event_id: string;
+  team_id: string;
+  opponent_name: string;
+  opponent_team_id: string | null;
+  is_home: boolean;
+  status: GameStatus;
+  our_score: number;
+  their_score: number;
+  period: number;
+  scorekeeper_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+}
+
+export interface StatEvent {
+  id: string;
+  game_id: string;
+  athlete_id: string | null;
+  stat_type: string;
+  points: number;
+  period: number;
+  recorded_by: string;
+  created_at: string;
+  athlete?: Athlete;
+}
+
+export interface CardRow {
+  first_name: string;
+  last_initial: string;
+  color: string;
+  birth_year: number | null;
+  team_id: string | null;
+  team_name: string | null;
+  sport: Sport | null;
+  season: string | null;
+  games: number | null;
+  stat_type: string | null;
+  tally: number | null;
+  points: number | null;
+  is_current: boolean | null;
+}

@@ -40,14 +40,15 @@ export default function ThisWeek() {
   const [kidFilter, setKidFilter] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!profile) return;
     const { from, to } = thisWeekRange();
     const [{ data }, { count }] = await Promise.all([
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
-      supabase.from('team_members').select('*', { count: 'exact', head: true }),
+      supabase.from('team_members').select('*', { count: 'exact', head: true }).eq('profile_id', profile?.id ?? ''),
     ]);
     setEvents((data as MyEvent[]) ?? []);
     setTeamCount(count ?? 0);
-  }, []);
+  }, [profile]);
 
   useFocusEffect(
     useCallback(() => {

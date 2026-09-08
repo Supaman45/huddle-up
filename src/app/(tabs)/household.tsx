@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Share, View } from 'react-native';
+import { Alert, Pressable, Share, View } from 'react-native';
 
 import { Avatar, Button, Card, Chip, ListRow, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -73,14 +73,14 @@ export default function HouseholdScreen() {
         {athletes.map((a) => (
           <Card key={a.id} rail={a.color} style={{ paddingLeft: space.xl }}>
             <Row style={{ justifyContent: 'space-between' }}>
-              <View>
+              <Pressable onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: a.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flex: 1 })}>
                 <Text variant="h3">
                   {a.first_name} {a.last_initial ? `${a.last_initial}.` : ''}
                 </Text>
-                <Text variant="small" color="muted">
-                  {a.birth_year ? `Born ${a.birth_year}` : 'Birth year not set'}
+                <Text variant="small" color="accent">
+                  {a.birth_year ? `Born ${a.birth_year} · ` : ''}See player card ›
                 </Text>
-              </View>
+              </Pressable>
               <Chip label={consentLabel[a.media_consent]} tone={a.media_consent === 'household' ? 'accent' : 'gold'} onPress={() => cycleConsent(a.id, a.media_consent)} />
             </Row>
             <Text variant="small" color="muted" style={{ marginTop: space.sm }}>

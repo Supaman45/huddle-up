@@ -6,6 +6,7 @@ import { Avatar, Button, Empty, ListRow, Loading, Row, Screen, Stack, Text } fro
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel } from '@/lib/theme';
 import type { Team, TeamRole } from '@/lib/types';
+import { useSession } from '@/providers/session';
 
 interface Membership {
   role: TeamRole;
@@ -14,12 +15,14 @@ interface Membership {
 
 export default function Teams() {
   const router = useRouter();
+  const { profile } = useSession();
   const [rows, setRows] = useState<Membership[] | null>(null);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('team_members').select('role, team:teams(*)').order('created_at');
+    if (!profile) return;
+    const { data } = await supabase.from('team_members').select('role, team:teams(*)').eq('profile_id', profile.id).order('created_at');
     setRows((data as unknown as Membership[]) ?? []);
-  }, []);
+  }, [profile]);
 
   useFocusEffect(
     useCallback(() => {

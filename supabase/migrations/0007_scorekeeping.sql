@@ -1,0 +1,10 @@
+-- Applied to the live project as migrations "scorekeeping_and_player_stats" and
+-- "lock_new_function_grants" (2026-09-08).
+--   games            one row per event; our_score kept in sync by trigger, their_score manual
+--   stat_events      one row per tap; undo deletes the newest row
+--   athlete_stat_totals  view: totals by athlete, team, season, stat
+--   start_game()     claims or joins scorekeeping for an event
+--   athlete_card()   everything a player card needs, gated by can_see_athlete()
+-- Function grants: anon has execute on nothing; RLS helper functions are granted to
+-- authenticated because policy expressions run as the calling role.
+-- Run `supabase db pull` to materialize the full SQL here.

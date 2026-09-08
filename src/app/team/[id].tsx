@@ -226,7 +226,12 @@ export default function TeamSpace() {
           ) : null}
           <Row style={{ flexWrap: 'wrap' }}>
             {roster.map((a) => (
-              <Chip key={a.id} label={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`} dot={a.color} />
+              <Chip
+                key={a.id}
+                label={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`}
+                dot={a.color}
+                onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: a.id } })}
+              />
             ))}
           </Row>
           {myKidsNotOnRoster.length ? (

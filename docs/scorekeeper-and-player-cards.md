@@ -1,25 +1,38 @@
-# Scorekeeper and player cards (idea captured 2026-09-07)
+# Scorekeeper and player cards
 
-Source: Seri and Trisha, voice brainstorm.
+Shipped 2026-09-08. Idea from Seri and Trisha.
 
-## The idea
-Every game already has a parent keeping score on the sideline. Give that parent a button. The roster is already in the app, so scoring is: tap the player, tap the points. Home and away, opponent picked from the same database when the other team is also on Huddle Up, otherwise typed once. Every tap lands in one Supabase dataset, walled off by team through RLS, which means per-kid stats accumulate across games, seasons, teams and sports without anyone doing data entry after the game.
+## How it works
+Every game already has a parent on the sideline. Give that parent a button.
 
-## Why it matters for money
-This is the object families pay for. The team-side scoring button stays free (it is what gets the scorekeeper to install). Family Plus unlocks the player card: a photo card that flips to show current-season stats and every prior season. Parents keep it because it is the record of their kid's sports life, and that record is what makes households stay through team changes. At 14+, the same card becomes the scout-facing profile.
+- Open a game event, tap **Keep score**, name the opponent, pick home or away.
+- The roster loads as a grid. Tap the kid, then tap the stat. Two taps, one thumb.
+- The team score adds itself from scoring taps (a database trigger keeps `games.our_score` in sync with `stat_events`). The opponent score is a plus and minus button.
+- Everyone else on the team who opens the event sees the score live, no scorekeeping controls.
+- Undo removes the newest tap. End game marks it final.
 
-## Fit with the plan
-- Release 1 candidate, right after carpools prove the habit. It is the fastest path from "useful" to "worth $59 a year."
-- It is GameChanger's home turf for baseball and softball, which is why we launch in soccer and basketball where GameChanger's scoring is weak.
-- Keep it deliberately simple: goals, assists, saves, shots for soccer; points, rebounds, assists, steals for basketball. No play-by-play. One thumb.
+## Stat sets, kept deliberately small
+- Soccer: Goal, Assist, Shot, Save
+- Basketball: 2 pt, 3 pt, Free throw, Rebound, Assist, Steal
 
-## Data model sketch
-- games (event_id, home_team_id, away_team_id nullable, away_team_name, final_home, final_away, scorekeeper_id, status)
-- stat_events (game_id, athlete_id, stat_type, value, at, recorded_by) append-only, so a bad tap is an undo row, never a delete
-- athlete_season_stats materialized view: sum by athlete, team, season, stat_type
-- Player card reads the view; free users see the current game, Family Plus sees the archive
+## Player cards
+`/athlete/[id]` is a flip card. Front is the kid, their team and a one-line season summary. Back is the stat table for the current season plus a career line. Below it, every season they have ever played, newest first, with per-stat totals.
 
-## Open questions
-- Validation: two parents scoring the same game. Answer to test: one scorekeeper per game, claimable, others watch live.
-- Opponent kids: never named unless their own household is on the app and consents. Away team shows as a team, not as children.
-- Realtime: the same Supabase channel pattern the carpool board uses, so grandparents can follow the score from home.
+Stats attach to the **athlete**, not the team, so they follow a kid across rosters, seasons and sports. That is the thing TeamSnap and GameChanger cannot do, and it is why a household stays subscribed after a team dissolves.
+
+Reachable from: Household (tap a kid), Team → People (tap a player chip), Event → RSVP row (tap a kid).
+
+## Money
+The current season is free forever. Family Plus ($59/yr per household, not yet for sale) keeps every prior season, adds photos and clips to the card, and gives extra adults their own login. The card shows an honest "Soon" chip today; nothing is behind a paywall until Stripe is wired.
+
+## Data model
+- `games` — one row per event. `our_score` maintained by trigger, `their_score` manual, `scorekeeper_id` claims the game.
+- `stat_events` — one row per tap, append-only in practice; undo deletes the newest row.
+- `athlete_stat_totals` — view, totals by athlete, team, season, stat.
+- `start_game(event_id, opponent, is_home)` — claims or joins.
+- `athlete_card(athlete_id)` — everything a card needs in one call, gated by `can_see_athlete`.
+
+RLS: only the claimed scorekeeper (or team staff) can write stats; any team member can read them.
+
+## Not built yet
+Opponent rosters (away kids are never named), per-play video, box score export, season leaderboards, push when the score changes.
