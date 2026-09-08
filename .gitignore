@@ -13,3 +13,4 @@ expo-env.d.ts
 .env.local
 .DS_Store
 supabase/.temp
+.claude-sync/
