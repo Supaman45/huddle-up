@@ -139,11 +139,45 @@ export type DashFilter = 'all' | 'needs' | 'mine';
 export function matchesFilter(ev: CarpoolEvent, filter: DashFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'needs') return openAsks(ev).length > 0;
-  return (
-    ev.offers.some((c) => c.mine) ||
-    ev.requests.some((r) => r.mine) ||
-    ev.my_athlete_ids.length > 0
-  );
+  // Mine means a ride this parent is personally in: their kid asked, their kid is in a car, or
+  // they are driving. It deliberately does NOT include "my kid plays in this game". Every event
+  // on this tab already belongs to one of their teams, so that test matches nearly everything
+  // and the tab silently becomes a second copy of All.
+  return ev.offers.some((c) => c.mine) || ev.requests.some((r) => r.mine);
+}
+
+/**
+ * How many events each filter would show. The tabs carry these numbers so a parent sees the
+ * difference between them before tapping, rather than tapping three times to find out.
+ */
+export function filterCounts(events: CarpoolEvent[]): Record<DashFilter, number> {
+  return {
+    all: events.length,
+    needs: events.filter((ev) => matchesFilter(ev, 'needs')).length,
+    mine: events.filter((ev) => matchesFilter(ev, 'mine')).length,
+  };
+}
+
+/** The headline, which answers the question the chosen tab is asking. */
+export function filterHeadline(filter: DashFilter, sum: DashSummary): string {
+  if (filter === 'needs') {
+    if (sum.waiting === 0) return 'Every kid has a seat.';
+    return `${sum.waiting} ${sum.waiting === 1 ? 'kid needs' : 'kids need'} a ride.`;
+  }
+  if (filter === 'mine') {
+    if (sum.mineWaiting > 0) {
+      return sum.mineWaiting === 1 ? 'One of your kids still needs a ride.' : `${sum.mineWaiting} of your kids still need a ride.`;
+    }
+    if (sum.driving > 0) return `You're driving ${sum.driving === 1 ? 'once' : `${sum.driving} times`}.`;
+    if (sum.riding > 0) return `${sum.riding} of your rides ${sum.riding === 1 ? 'is' : 'are'} set.`;
+    return 'You have no rides yet.';
+  }
+  if (sum.mineWaiting > 0) {
+    return sum.mineWaiting === 1 ? 'One of your kids still needs a ride.' : `${sum.mineWaiting} of your kids still need a ride.`;
+  }
+  if (sum.waiting > 0) return `${sum.waiting} ${sum.waiting === 1 ? 'kid needs' : 'kids need'} a ride this month.`;
+  if (sum.driving > 0) return `You're driving ${sum.driving === 1 ? 'once' : `${sum.driving} times`}. Everyone else is set.`;
+  return 'Everyone has a ride.';
 }
 
 /**

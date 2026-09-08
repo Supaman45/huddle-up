@@ -11,6 +11,8 @@ import {
   askableAthleteIds,
   eventState,
   kidName,
+  filterCounts,
+  filterHeadline,
   matchesFilter,
   myCars,
   openAsks,
@@ -109,16 +111,8 @@ export default function Carpool() {
   const shown = useMemo(() => (events ?? []).filter((ev) => matchesFilter(ev, filter)), [events, filter]);
   const groups = groupByDay(shown, (e) => new Date(e.starts_at));
   const sum = summarize(events ?? []);
-  const needsCount = (events ?? []).filter((ev) => openAsks(ev).length > 0).length;
-
-  const headline =
-    sum.mineWaiting > 0
-      ? `${sum.mineWaiting === 1 ? 'One of your kids' : `${sum.mineWaiting} of your kids`} still ${sum.mineWaiting === 1 ? 'needs' : 'need'} a ride.`
-      : sum.waiting > 0
-        ? `${sum.waiting} ${sum.waiting === 1 ? 'kid needs' : 'kids need'} a ride this month.`
-        : sum.driving > 0
-          ? `You're driving ${sum.driving === 1 ? 'once' : `${sum.driving} times`}. Everyone else is set.`
-          : 'Everyone has a ride.';
+  const counts = useMemo(() => filterCounts(events ?? []), [events]);
+  const headline = filterHeadline(filter, sum);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -148,9 +142,9 @@ export default function Carpool() {
             value={filter}
             onChange={setFilter}
             items={[
-              { key: 'all', label: 'All' },
-              { key: 'needs', label: 'Needs a ride', badge: needsCount || undefined },
-              { key: 'mine', label: 'Mine' },
+              { key: 'all', label: 'All', badge: counts.all || undefined },
+              { key: 'needs', label: 'Needs a ride', badge: counts.needs || undefined },
+              { key: 'mine', label: 'Mine', badge: counts.mine || undefined },
             ]}
           />
         </View>

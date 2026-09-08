@@ -7,6 +7,8 @@ import {
   driverMessage,
   eventState,
   kidName,
+  filterCounts,
+  filterHeadline,
   matchesFilter,
   seatsLeft,
   seatsOpen,
@@ -142,15 +144,52 @@ describe('filters', () => {
   const waiting = event({ requests: [ask()] });
   const quietWithMyKid = event({ event_id: 'e2', my_athlete_ids: ['a9'] });
   const quietNotMine = event({ event_id: 'e3' });
+  const myAsk = event({ event_id: 'e4', my_athlete_ids: ['a9'], requests: [ask({ mine: true })] });
+  const imDriving = event({ event_id: 'e5', my_athlete_ids: ['a9'], offers: [car({ mine: true })] });
 
   it('needs shows only events with an open request', () => {
     expect(matchesFilter(waiting, 'needs')).toBe(true);
     expect(matchesFilter(quietWithMyKid, 'needs')).toBe(false);
   });
 
-  it('mine shows events my kids are on, even before anyone has asked', () => {
-    expect(matchesFilter(quietWithMyKid, 'mine')).toBe(true);
+  it('mine shows rides I am in, by asking or by driving', () => {
+    expect(matchesFilter(myAsk, 'mine')).toBe(true);
+    expect(matchesFilter(imDriving, 'mine')).toBe(true);
+  });
+
+  it('mine excludes an event my kid plays in where no ride involves me', () => {
+    // Every event on this tab is already one of my kids' events. Matching on that made Mine a
+    // second copy of All, which is exactly what it looked like on a phone.
+    expect(matchesFilter(quietWithMyKid, 'mine')).toBe(false);
+    expect(matchesFilter(waiting, 'mine')).toBe(false);
     expect(matchesFilter(quietNotMine, 'mine')).toBe(false);
+  });
+
+  it('gives each tab its own count so they differ before anyone taps', () => {
+    const all = [waiting, quietWithMyKid, myAsk, imDriving];
+    expect(filterCounts(all)).toEqual({ all: 4, needs: 2, mine: 2 });
+  });
+
+  it('never lets every tab show the same set', () => {
+    const all = [waiting, quietWithMyKid, myAsk, imDriving];
+    const c = filterCounts(all);
+    expect(new Set([c.all, c.needs, c.mine]).size).toBeGreaterThan(1);
+  });
+});
+
+describe('filterHeadline', () => {
+  const sum = { waiting: 3, mineWaiting: 1, seats: 5, driving: 1, riding: 2 };
+
+  it('answers the question the chosen tab is asking', () => {
+    expect(filterHeadline('needs', sum)).toBe('3 kids need a ride.');
+    expect(filterHeadline('mine', sum)).toBe('One of your kids still needs a ride.');
+  });
+
+  it('changes when the tab changes, so the screen does not look frozen', () => {
+    const settled = { waiting: 0, mineWaiting: 0, seats: 4, driving: 1, riding: 0 };
+    expect(filterHeadline('needs', settled)).toBe('Every kid has a seat.');
+    expect(filterHeadline('mine', settled)).toBe("You're driving once.");
+    expect(filterHeadline('all', settled)).not.toBe(filterHeadline('needs', settled));
   });
 });
 
