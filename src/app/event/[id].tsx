@@ -325,7 +325,15 @@ export default function EventScreen() {
         </Row>
       ) : null}
 
-      {!myOffer && !offerForm.open ? <Button title="I can drive" icon={<CarIcon color={t.accentInk} size={20} />} onPress={() => setOfferForm((f) => ({ ...f, open: true }))} /> : null}
+      {/* Same rule as the home card: while one of your own kids is waiting on a driver,
+          offering a car makes no sense. Cancel the request and the button comes back. */}
+      {myKidsOnTeam.some((k) => requests.find((r) => r.athlete_id === k.id)?.status === 'open') ? (
+        <Text variant="small" color="muted">
+          Cancel your ride request above if you end up driving after all.
+        </Text>
+      ) : !myOffer && !offerForm.open ? (
+        <Button title="I can drive" icon={<CarIcon color={t.accentInk} size={20} />} onPress={() => setOfferForm((f) => ({ ...f, open: true }))} />
+      ) : null}
 
       {offerForm.open ? (
         <Card raised style={{ marginTop: space.sm }}>

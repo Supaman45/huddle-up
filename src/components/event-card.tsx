@@ -22,6 +22,10 @@ export function EventCard({ ev, athletes, hero = false, onChanged }: { ev: MyEve
   const open = () => router.push({ pathname: '/event/[id]', params: { id: ev.event_id } });
   const arriveAt = new Date(start.getTime() - 30 * 60000);
   const unansweredMine = kids.filter((k) => !ev.my_rsvps?.[k.id]).length;
+  // A parent waiting on a driver for their own kid is not the person to offer a car,
+  // so the hero card drops the drive button and gives the remaining action the full width.
+  const hideDrive = needsRide;
+  const soloAction = hideDrive;
 
   return (
     <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10, opacity: ev.cancelled ? 0.6 : 1 }}>
@@ -82,13 +86,25 @@ export function EventCard({ ev, athletes, hero = false, onChanged }: { ev: MyEve
       </Pressable>
         {hero && !ev.cancelled ? (
           <Row gap={8} style={{ marginTop: 2 }}>
-            <View style={{ flex: 1 }}>
-              <Button title={ev.my_ride_status === 'driving' ? 'Manage my car' : 'I can drive'} size="sm" onPress={open} />
-            </View>
+            {hideDrive ? null : (
+              <View style={{ flex: 1 }}>
+                <Button title={ev.my_ride_status === 'driving' ? 'Manage my car' : 'I can drive'} size="sm" onPress={open} />
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Button
-                title={unansweredMine > 0 ? `RSVP ${unansweredMine === 1 ? kids.find((k) => !ev.my_rsvps?.[k.id])?.first_name ?? '' : `${unansweredMine} kids`}` : ev.open_slots > 0 ? `Snacks: ${ev.open_slots} open` : 'Details'}
-                kind="secondary"
+                title={
+                  unansweredMine > 0
+                    ? `RSVP ${unansweredMine === 1 ? kids.find((k) => !ev.my_rsvps?.[k.id])?.first_name ?? '' : `${unansweredMine} kids`}`
+                    : ev.my_ride_status === 'needs_ride'
+                      ? 'See who is going'
+                      : ev.my_ride_status === 'matched'
+                        ? 'Your ride'
+                        : ev.open_slots > 0
+                          ? `Snacks: ${ev.open_slots} open`
+                          : 'Details'
+                }
+                kind={soloAction ? 'primary' : 'secondary'}
                 size="sm"
                 onPress={open}
               />
