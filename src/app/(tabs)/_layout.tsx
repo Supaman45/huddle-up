@@ -1,11 +1,8 @@
 import { Tabs } from 'expo-router';
-import { Platform, Text, type ColorValue } from 'react-native';
+import { Platform } from 'react-native';
 
+import { BallIcon, CalendarIcon, HomeIcon, PersonIcon } from '@/components/icons';
 import { fonts, useTheme } from '@/lib/theme';
-
-function Icon({ glyph, color }: { glyph: string; color: ColorValue }) {
-  return <Text style={{ fontSize: 20, color, fontFamily: fonts.displayMedium }}>{glyph}</Text>;
-}
 
 export default function TabsLayout() {
   const t = useTheme();
@@ -14,19 +11,20 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: t.accent,
-        tabBarInactiveTintColor: t.muted,
+        tabBarInactiveTintColor: t.faint,
         tabBarStyle: {
-          backgroundColor: t.surface,
+          backgroundColor: 'rgba(15,22,32,0.96)',
           borderTopColor: t.line,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingTop: 6,
+          height: Platform.OS === 'ios' ? 86 : 68,
+          paddingTop: 10,
         },
-        tabBarLabelStyle: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase' },
+        tabBarLabelStyle: { fontFamily: fonts.displayBold, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 2 },
+        sceneStyle: { backgroundColor: t.bg },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'This week', tabBarIcon: ({ color }) => <Icon glyph="▦" color={color} /> }} />
-      <Tabs.Screen name="teams" options={{ title: 'Teams', tabBarIcon: ({ color }) => <Icon glyph="◆" color={color} /> }} />
-      <Tabs.Screen name="household" options={{ title: 'Household', tabBarIcon: ({ color }) => <Icon glyph="⌂" color={color} /> }} />
-      <Tabs.Screen name="me" options={{ title: 'Me', tabBarIcon: ({ color }) => <Icon glyph="●" color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Week', tabBarIcon: ({ color }) => <CalendarIcon color={color} /> }} />
+      <Tabs.Screen name="teams" options={{ title: 'Teams', tabBarIcon: ({ color }) => <BallIcon color={color} /> }} />
+      <Tabs.Screen name="household" options={{ title: 'Home', tabBarIcon: ({ color }) => <HomeIcon color={color} /> }} />
+      <Tabs.Screen name="me" options={{ title: 'Me', tabBarIcon: ({ color }) => <PersonIcon color={color} /> }} />
     </Tabs>
   );
 }

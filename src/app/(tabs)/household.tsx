@@ -71,7 +71,7 @@ export default function HouseholdScreen() {
       <SectionHeader title="Kids" right={<Chip label="+ Add" tone="accent" onPress={() => router.push('/athlete/new')} />} />
       <Stack gap={space.sm}>
         {athletes.map((a) => (
-          <Card key={a.id} accent={a.color}>
+          <Card key={a.id} rail={a.color} style={{ paddingLeft: space.xl }}>
             <Row style={{ justifyContent: 'space-between' }}>
               <View>
                 <Text variant="h3">

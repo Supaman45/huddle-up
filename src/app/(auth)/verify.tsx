@@ -31,7 +31,7 @@ export default function Verify() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} glow>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center' }}>
         <View style={{ gap: space.sm }}>
           <Text variant="h1">Check your email</Text>

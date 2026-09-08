@@ -3,6 +3,7 @@ export type EventType = 'game' | 'practice' | 'tournament' | 'other';
 export type RideDirection = 'to' | 'from' | 'both';
 export type MediaConsent = 'household' | 'team' | 'shareable';
 export type TeamRole = 'manager' | 'coach' | 'parent';
+export type RsvpStatus = 'going' | 'out' | 'maybe';
 
 export interface Profile {
   id: string;
@@ -81,6 +82,10 @@ export interface MyEvent {
   open_requests: number;
   open_slots: number;
   my_ride_status: 'driving' | 'matched' | 'needs_ride' | null;
+  going: number;
+  out_count: number;
+  unanswered: number;
+  my_rsvps: Record<string, RsvpStatus>;
 }
 
 export interface CarpoolOffer {
@@ -122,4 +127,25 @@ export interface SignupClaim {
   profile_id: string;
   note: string | null;
   profile?: Profile;
+}
+
+export interface Rsvp {
+  event_id: string;
+  athlete_id: string;
+  status: RsvpStatus;
+  set_by: string;
+  note: string | null;
+  athlete?: Athlete;
+}
+
+export interface Message {
+  id: string;
+  team_id: string;
+  author_id: string;
+  body: string | null;
+  image_path: string | null;
+  event_id: string | null;
+  created_at: string;
+  author?: Profile;
+  reactions?: { emoji: string; profile_id: string }[];
 }

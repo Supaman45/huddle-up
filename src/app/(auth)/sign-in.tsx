@@ -31,13 +31,13 @@ export default function SignIn() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} glow>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center' }}>
         <View style={{ gap: space.sm }}>
           <Text variant="label" color="accent">
             Huddle Up
           </Text>
-          <Text variant="display">Who's driving?</Text>
+          <Text variant="display" style={{ marginTop: space.sm }}>Who's driving?</Text>
           <Text color="muted">
             One place for every kid's schedule, carpools and snack duty. Free for the team, always.
           </Text>
@@ -67,7 +67,7 @@ export default function SignIn() {
           </Text>
         </Stack>
         <Spacer h={space.xxxl} />
-        <Text variant="small" color="muted" style={{ textAlign: 'center', color: t.muted }}>
+        <Text variant="small" color="faint" style={{ textAlign: 'center' }}>
           By continuing you agree to keep this app ad-free for kids, because we do.
         </Text>
       </KeyboardAvoidingView>

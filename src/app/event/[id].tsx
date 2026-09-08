@@ -2,11 +2,12 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 
-import { Avatar, Button, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
-import { dayLabel, rangeLabel } from '@/lib/dates';
+import { CarIcon, PinIcon, SnackIcon } from '@/components/icons';
+import { Avatar, BackLink, Button, Card, Chip, Divider, Input, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
-import type { Athlete, CarpoolOffer, CarpoolRequest, Event, RideDirection, SignupSlot, Team } from '@/lib/types';
+import type { Athlete, CarpoolOffer, CarpoolRequest, Event, RideDirection, Rsvp, RsvpStatus, SignupSlot, Team } from '@/lib/types';
 import { useSession } from '@/providers/session';
 
 const dirLabel: Record<RideDirection, string> = { to: 'There', from: 'Back', both: 'Both ways' };
@@ -22,6 +23,7 @@ export default function EventScreen() {
   const [requests, setRequests] = useState<CarpoolRequest[]>([]);
   const [slots, setSlots] = useState<SignupSlot[]>([]);
   const [roster, setRoster] = useState<Athlete[]>([]);
+  const [rsvps, setRsvps] = useState<Rsvp[]>([]);
   const [offerForm, setOfferForm] = useState<{ open: boolean; seats: string; direction: RideDirection; note: string }>({ open: false, seats: '2', direction: 'both', note: '' });
   const [slotForm, setSlotForm] = useState<{ open: boolean; title: string; kind: SignupSlot['kind']; needed: string }>({ open: false, title: '', kind: 'snack', needed: '1' });
 
@@ -29,18 +31,20 @@ export default function EventScreen() {
     const { data: ev } = await supabase.from('events').select('*').eq('id', id).single();
     if (!ev) return;
     setEvent(ev as Event);
-    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }] = await Promise.all([
+    const [{ data: tm }, { data: of }, { data: rq }, { data: sl }, { data: ta }, { data: rs }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', ev.team_id).single(),
       supabase.from('carpool_offers').select('*, driver:profiles(*)').eq('event_id', id).order('created_at'),
       supabase.from('carpool_requests').select('*, athlete:athletes(*), requester:profiles(*)').eq('event_id', id).neq('status', 'cancelled').order('created_at'),
       supabase.from('signup_slots').select('*, claims:signup_claims(*, profile:profiles(*))').eq('event_id', id).order('created_at'),
       supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', ev.team_id),
+      supabase.from('rsvps').select('*, athlete:athletes(*)').eq('event_id', id),
     ]);
     setTeam(tm as Team);
     setOffers((of as CarpoolOffer[]) ?? []);
     setRequests((rq as CarpoolRequest[]) ?? []);
     setSlots((sl as SignupSlot[]) ?? []);
     setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete));
+    setRsvps((rs as Rsvp[]) ?? []);
   }, [id]);
 
   useFocusEffect(
@@ -49,12 +53,12 @@ export default function EventScreen() {
     }, [load]),
   );
 
-  // live updates: anyone on the team changing the board refreshes everyone
   useEffect(() => {
     const ch = supabase
       .channel(`event-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_offers', filter: `event_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_requests', filter: `event_id=eq.${id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rsvps', filter: `event_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_claims' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_slots', filter: `event_id=eq.${id}` }, load)
       .subscribe();
@@ -77,21 +81,30 @@ export default function EventScreen() {
   const myOffer = offers.find((o) => o.driver_id === profile?.id);
   const arrive = event.arrive_minutes ?? team.default_arrive_minutes;
   const arriveAt = new Date(start.getTime() - arrive * 60000);
+  const going = rsvps.filter((r) => r.status === 'going');
+  const out = rsvps.filter((r) => r.status === 'out');
+  const unanswered = roster.filter((a) => !rsvps.some((r) => r.athlete_id === a.id));
+  const openRequests = requests.filter((r) => r.status === 'open');
 
   function seatsTaken(offerId: string) {
     return requests.filter((r) => r.offer_id === offerId && r.status === 'matched').length;
   }
 
+  async function setRsvp(athleteId: string, status: RsvpStatus) {
+    const current = rsvps.find((r) => r.athlete_id === athleteId);
+    if (current?.status === status) {
+      await supabase.from('rsvps').delete().eq('event_id', id).eq('athlete_id', athleteId);
+    } else {
+      const { error } = await supabase.from('rsvps').upsert({ event_id: id, athlete_id: athleteId, status, set_by: profile!.id, updated_at: new Date().toISOString() }, { onConflict: 'event_id,athlete_id' });
+      if (error) Alert.alert('Could not save RSVP', error.message);
+    }
+    await load();
+  }
+
   async function offerRide() {
     const seats = Number(offerForm.seats);
     if (!seats || seats < 1) return Alert.alert('How many seats can you take?');
-    const { error } = await supabase.from('carpool_offers').insert({
-      event_id: id,
-      driver_id: profile!.id,
-      direction: offerForm.direction,
-      seats,
-      pickup_note: offerForm.note.trim() || null,
-    });
+    const { error } = await supabase.from('carpool_offers').insert({ event_id: id, driver_id: profile!.id, direction: offerForm.direction, seats, pickup_note: offerForm.note.trim() || null });
     if (error) return Alert.alert('Could not post ride', error.message);
     setOfferForm({ open: false, seats: '2', direction: 'both', note: '' });
   }
@@ -102,12 +115,7 @@ export default function EventScreen() {
   }
 
   async function requestRide(athleteId: string) {
-    const { error } = await supabase.from('carpool_requests').insert({
-      event_id: id,
-      athlete_id: athleteId,
-      requested_by: profile!.id,
-      direction: 'both',
-    });
+    const { error } = await supabase.from('carpool_requests').insert({ event_id: id, athlete_id: athleteId, requested_by: profile!.id, direction: 'both' });
     if (error && !error.message.includes('duplicate')) Alert.alert('Could not request', error.message);
   }
 
@@ -127,13 +135,7 @@ export default function EventScreen() {
 
   async function addSlot() {
     if (!slotForm.title.trim()) return Alert.alert('Name the slot, like "Orange slices" or "Line the field".');
-    const { error } = await supabase.from('signup_slots').insert({
-      event_id: id,
-      kind: slotForm.kind,
-      title: slotForm.title.trim(),
-      needed: Math.max(1, Number(slotForm.needed) || 1),
-      created_by: profile!.id,
-    });
+    const { error } = await supabase.from('signup_slots').insert({ event_id: id, kind: slotForm.kind, title: slotForm.title.trim(), needed: Math.max(1, Number(slotForm.needed) || 1), created_by: profile!.id });
     if (error) return Alert.alert('Could not add', error.message);
     setSlotForm({ open: false, title: '', kind: 'snack', needed: '1' });
   }
@@ -150,57 +152,91 @@ export default function EventScreen() {
     Linking.openURL(url!);
   }
 
-  const openRequests = requests.filter((r) => r.status === 'open');
-
   return (
-    <Screen>
-      <Pressable onPress={() => router.back()} style={{ paddingVertical: space.sm }}>
-        <Text color="accent">‹ Back</Text>
-      </Pressable>
-      <Row>
-        <View style={{ width: 6, alignSelf: 'stretch', borderRadius: 3, backgroundColor: team.color }} />
+    <Screen glow>
+      <BackLink onPress={() => router.back()} />
+      <Row style={{ alignItems: 'stretch' }} gap={space.md}>
+        <View style={{ width: 5, borderRadius: 3, backgroundColor: team.color }} />
         <View style={{ flex: 1 }}>
-          <Text variant="label" color="muted">
+          <Text variant="label" color="faint">
             {team.name} · {event.type}
           </Text>
-          <Text variant="h1">{event.title}</Text>
+          <Text variant="display" style={{ marginTop: 4 }}>
+            {event.title}
+          </Text>
         </View>
       </Row>
 
-      <Card style={{ marginTop: space.lg }}>
-        <Row style={{ justifyContent: 'space-between' }}>
+      <Card raised style={{ marginTop: space.lg, gap: space.md }}>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
-            <Text variant="h3">{dayLabel(start)}</Text>
-            <Text color="muted">{rangeLabel(start, end)}</Text>
+            <Text variant="mono" color="accent">
+              {rangeLabel(start, end).toUpperCase()}
+            </Text>
+            <Text variant="h2" style={{ marginTop: 4 }}>
+              {dayLabel(start)}
+            </Text>
           </View>
-          <Chip label={`Arrive ${rangeLabel(arriveAt, null)}`} tone="accent" />
+          <Chip label={`Arrive by ${timeLabel(arriveAt)}`} tone="accent" />
         </Row>
         {event.location_name || event.location_address ? (
-          <Pressable onPress={openMaps} style={{ marginTop: space.md }}>
-            <Text variant="bodyMedium" color="accent">
-              {event.location_name ?? event.location_address}
-            </Text>
-            {event.location_address && event.location_name ? (
-              <Text variant="small" color="muted">
-                {event.location_address}
-              </Text>
-            ) : null}
-            <Text variant="small" color="muted">
-              Tap for directions
-            </Text>
+          <Pressable onPress={openMaps} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <Row gap={10}>
+              <PinIcon color={t.accent} size={20} />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium">{event.location_name ?? event.location_address}</Text>
+                <Text variant="small" color="muted">
+                  {event.location_address && event.location_name ? event.location_address : 'Tap for directions'}
+                </Text>
+              </View>
+            </Row>
           </Pressable>
         ) : null}
         {event.notes ? (
-          <Text variant="small" color="muted" style={{ marginTop: space.md }}>
+          <Text variant="small" color="muted">
             {event.notes}
           </Text>
         ) : null}
         {event.cancelled ? (
-          <Text variant="bodyBold" color="signal" style={{ marginTop: space.md }}>
+          <Text variant="bodyBold" color="signal">
             This event is cancelled.
           </Text>
         ) : null}
       </Card>
+
+      {/* ---------- RSVP ---------- */}
+      {myKidsOnTeam.length ? (
+        <>
+          <SectionHeader title="Who's coming" right={<Text variant="small" color="muted">{`${going.length} going · ${out.length} out · ${unanswered.length} unanswered`}</Text>} />
+          <Stack gap={space.sm}>
+            {myKidsOnTeam.map((k) => {
+              const mine = rsvps.find((r) => r.athlete_id === k.id)?.status;
+              return (
+                <Card key={k.id} rail={k.color} style={{ paddingLeft: space.xl }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <Row>
+                      <Avatar name={k.first_name} color={k.color} size={30} />
+                      <Text variant="bodyBold">{k.first_name}</Text>
+                    </Row>
+                    <Row gap={6}>
+                      <Chip label="Going" selected={mine === 'going'} onPress={() => setRsvp(k.id, 'going')} />
+                      <Chip label="Maybe" selected={mine === 'maybe'} onPress={() => setRsvp(k.id, 'maybe')} />
+                      <Chip label="Out" selected={mine === 'out'} onPress={() => setRsvp(k.id, 'out')} />
+                    </Row>
+                  </Row>
+                </Card>
+              );
+            })}
+          </Stack>
+          {going.length ? (
+            <Row style={{ marginTop: space.md, flexWrap: 'wrap' }} gap={6}>
+              {going.map((r) => (
+                <Chip key={r.athlete_id} label={r.athlete?.first_name ?? ''} dot={r.athlete?.color} />
+              ))}
+            </Row>
+          ) : null}
+        </>
+      ) : null}
 
       {/* ---------- Carpool board ---------- */}
       <SectionHeader
@@ -216,21 +252,21 @@ export default function EventScreen() {
               return (
                 <Chip
                   key={k.id}
-                  label={req.status === 'matched' ? `${k.first_name}: ride set` : `${k.first_name}: needs a ride (tap to cancel)`}
+                  label={req.status === 'matched' ? `${k.first_name}: ride set` : `${k.first_name} needs a ride · tap to cancel`}
                   tone={req.status === 'matched' ? 'accent' : 'signal'}
                   onPress={() => cancelRequest(req.id)}
                 />
               );
             }
-            return <Chip key={k.id} label={`${k.first_name} needs a ride`} onPress={() => requestRide(k.id)} />;
+            return <Chip key={k.id} label={`Request a ride for ${k.first_name}`} onPress={() => requestRide(k.id)} />;
           })}
         </Row>
       ) : null}
 
-      {!myOffer && !offerForm.open ? <Button title="I can drive" onPress={() => setOfferForm((f) => ({ ...f, open: true }))} /> : null}
+      {!myOffer && !offerForm.open ? <Button title="I can drive" icon={<CarIcon color={t.accentInk} size={20} />} onPress={() => setOfferForm((f) => ({ ...f, open: true }))} /> : null}
 
       {offerForm.open ? (
-        <Card style={{ marginTop: space.sm }}>
+        <Card raised style={{ marginTop: space.sm }}>
           <Stack>
             <Text variant="h3">Your car</Text>
             <Row>
@@ -256,7 +292,7 @@ export default function EventScreen() {
           const isMine = o.driver_id === profile?.id;
           const full = riders.length >= o.seats;
           return (
-            <Card key={o.id} accent={isMine ? t.accent : undefined}>
+            <Card key={o.id} rail={isMine ? t.accent : undefined} style={{ paddingLeft: isMine ? space.xl : space.lg }}>
               <Row style={{ justifyContent: 'space-between' }}>
                 <Row>
                   <Avatar name={o.driver?.full_name || '?'} />
@@ -282,29 +318,31 @@ export default function EventScreen() {
                 </Pressable>
               ) : null}
               {riders.length ? (
-                <View style={{ marginTop: space.md }}>
+                <View style={{ marginTop: space.md, gap: space.sm }}>
                   <Divider />
                   {riders.map((r) => (
-                    <Row key={r.id} style={{ justifyContent: 'space-between', paddingTop: space.sm }}>
-                      <Text variant="small">
-                        {r.athlete?.first_name} {r.athlete?.last_initial ? r.athlete.last_initial + '.' : ''}
-                        <Text variant="small" color="muted">
-                          {' '}
-                          · {r.requester?.full_name?.split(' ')[0]}
+                    <Row key={r.id} style={{ justifyContent: 'space-between' }}>
+                      <Row gap={6}>
+                        <Avatar name={r.athlete?.first_name ?? '?'} color={r.athlete?.color} size={22} />
+                        <Text variant="small">
+                          {r.athlete?.first_name} {r.athlete?.last_initial ? r.athlete.last_initial + '.' : ''}
+                          <Text variant="small" color="muted">
+                            {'  '}· {r.requester?.full_name?.split(' ')[0]}
+                          </Text>
                         </Text>
-                      </Text>
+                      </Row>
                       {isMine || r.requested_by === profile?.id ? <Chip label="Release" onPress={() => releaseRider(r)} /> : null}
                     </Row>
                   ))}
                 </View>
               ) : null}
               {isMine && !full && openRequests.length ? (
-                <View style={{ marginTop: space.md }}>
+                <View style={{ marginTop: space.md, gap: space.sm }}>
                   <Divider />
-                  <Text variant="label" color="muted" style={{ paddingTop: space.sm }}>
+                  <Text variant="label" color="faint">
                     Pick up
                   </Text>
-                  <Row style={{ flexWrap: 'wrap', marginTop: 6 }}>
+                  <Row style={{ flexWrap: 'wrap' }}>
                     {openRequests.map((r) => (
                       <Chip key={r.id} label={`+ ${r.athlete?.first_name}`} tone="signal" onPress={() => takeRider(r, o)} />
                     ))}
@@ -316,7 +354,7 @@ export default function EventScreen() {
         })}
         {offers.length === 0 && !offerForm.open ? (
           <Text variant="small" color="muted">
-            No one has offered a ride yet. Drivers see who needs a seat and tap to pick them up. Riders' parents get a text.
+            No one has offered a ride yet. Drivers see who needs a seat and tap to pick them up.
           </Text>
         ) : null}
         {openRequests.length ? (
@@ -326,8 +364,7 @@ export default function EventScreen() {
             </Text>
             {openRequests.map((r) => (
               <Text key={r.id} style={{ marginTop: 4 }}>
-                {r.athlete?.first_name} {r.athlete?.last_initial ? r.athlete.last_initial + '.' : ''}{' '}
-                <Text color="muted">· ask {r.requester?.full_name?.split(' ')[0]}</Text>
+                {r.athlete?.first_name} {r.athlete?.last_initial ? r.athlete.last_initial + '.' : ''} <Text color="muted">· ask {r.requester?.full_name?.split(' ')[0]}</Text>
               </Text>
             ))}
           </Card>
@@ -335,9 +372,9 @@ export default function EventScreen() {
       </Stack>
 
       {/* ---------- Signups ---------- */}
-      <SectionHeader title="Snack and volunteer" right={<Chip label="+ Add slot" tone="accent" onPress={() => setSlotForm((f) => ({ ...f, open: true }))} />} />
+      <SectionHeader title="Snacks and volunteers" right={<Chip label="+ Add slot" tone="accent" onPress={() => setSlotForm((f) => ({ ...f, open: true }))} />} />
       {slotForm.open ? (
-        <Card style={{ marginBottom: space.sm }}>
+        <Card raised style={{ marginBottom: space.sm }}>
           <Stack>
             <Row>
               {(['snack', 'volunteer', 'equipment'] as SignupSlot['kind'][]).map((k) => (
@@ -368,13 +405,16 @@ export default function EventScreen() {
           return (
             <Card key={s.id}>
               <Row style={{ justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <Text variant="bodyBold">{s.title}</Text>
-                  <Text variant="small" color="muted">
-                    {s.kind[0].toUpperCase() + s.kind.slice(1)} · {claims.length} of {s.needed} covered
-                    {claims.length ? ` · ${claims.map((c) => c.profile?.full_name?.split(' ')[0]).join(', ')}` : ''}
-                  </Text>
-                </View>
+                <Row style={{ flex: 1 }} gap={10}>
+                  <SnackIcon color={filled ? t.accent : t.gold} size={20} />
+                  <View style={{ flex: 1 }}>
+                    <Text variant="bodyBold">{s.title}</Text>
+                    <Text variant="small" color="muted">
+                      {claims.length} of {s.needed} covered
+                      {claims.length ? ` · ${claims.map((c) => c.profile?.full_name?.split(' ')[0]).join(', ')}` : ''}
+                    </Text>
+                  </View>
+                </Row>
                 <Chip label={mine ? "I'm out" : filled ? 'Covered' : "I've got it"} tone={mine ? 'neutral' : filled ? 'accent' : 'gold'} onPress={mine || !filled ? () => claim(s) : undefined} />
               </Row>
             </Card>

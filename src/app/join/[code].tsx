@@ -19,7 +19,7 @@ export default function JoinByLink() {
 
   if (!ready || !session || !household) {
     return (
-      <Screen scroll={false}>
+      <Screen scroll={false} glow>
         <Loading />
         <Text color="muted" style={{ textAlign: 'center' }}>
           Sign in first, then we will bring you back to team {code}.

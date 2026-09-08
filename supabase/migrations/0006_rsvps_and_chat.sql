@@ -1,0 +1,3 @@
+-- See applied migration rsvps_and_chat (2026-09-08): rsvps, messages, message_reactions, team_reads,
+-- team-media storage bucket with team-scoped policies, my_events extended with RSVP counts.
+-- Full SQL mirrored from the Supabase migration history; run `supabase db pull` to refresh.

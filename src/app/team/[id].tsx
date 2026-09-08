@@ -1,15 +1,24 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, Share, View } from 'react-native';
+import { Alert, Share, View } from 'react-native';
 
+import { DateTimeField } from '@/components/date-time-field';
 import { EventCard } from '@/components/event-card';
-import { Avatar, Button, Card, Chip, Empty, Input, ListRow, Loading, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { ChatIcon, ShareIcon, SyncIcon } from '@/components/icons';
+import { Avatar, BackLink, Button, Card, Chip, Empty, Input, ListRow, Loading, Row, Screen, SectionHeader, Segments, Stack, Text } from '@/components/ui';
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel, useTheme } from '@/lib/theme';
-import type { Athlete, MyEvent, Team, TeamMember } from '@/lib/types';
+import type { Athlete, EventType, MyEvent, Team, TeamMember } from '@/lib/types';
 import { useSession } from '@/providers/session';
+
+function nextSaturdayNine() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
+  d.setHours(9, 0, 0, 0);
+  return d;
+}
 
 export default function TeamSpace() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,9 +29,11 @@ export default function TeamSpace() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [events, setEvents] = useState<MyEvent[]>([]);
+  const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState<'schedule' | 'people' | 'settings'>('schedule');
   const [syncing, setSyncing] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: '', when: '', location: '' });
+  const [adding, setAdding] = useState(false);
+  const [newEvent, setNewEvent] = useState<{ title: string; type: EventType; when: Date; minutes: string; location: string }>({ title: '', type: 'practice', when: nextSaturdayNine(), minutes: '60', location: '' });
 
   const myRole = members.find((m) => m.profile_id === profile?.id)?.role;
   const isStaff = myRole === 'manager' || myRole === 'coach';
@@ -32,17 +43,21 @@ export default function TeamSpace() {
     from.setHours(0, 0, 0, 0);
     const to = new Date(from);
     to.setDate(to.getDate() + 90);
-    const [{ data: tm }, { data: mem }, { data: ta }, { data: ev }] = await Promise.all([
+    const [{ data: tm }, { data: mem }, { data: ta }, { data: ev }, { data: rd }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
       supabase.from('team_members').select('*, profile:profiles(*)').eq('team_id', id),
       supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', id),
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
+      supabase.from('team_reads').select('last_read_at').eq('team_id', id).eq('profile_id', profile!.id).maybeSingle(),
     ]);
     setTeam(tm as Team);
     setMembers((mem as TeamMember[]) ?? []);
     setRoster(((ta as unknown as { athlete: Athlete }[]) ?? []).map((r) => r.athlete));
     setEvents(((ev as MyEvent[]) ?? []).filter((e) => e.team_id === id));
-  }, [id]);
+    const since = (rd as { last_read_at: string } | null)?.last_read_at ?? '1970-01-01';
+    const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('team_id', id).gt('created_at', since).neq('author_id', profile!.id);
+    setUnread(count ?? 0);
+  }, [id, profile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,20 +85,19 @@ export default function TeamSpace() {
   }
 
   async function addEvent() {
-    if (!newEvent.title.trim() || !newEvent.when.trim()) return Alert.alert('Add a title and a start time.');
-    const when = new Date(newEvent.when);
-    if (Number.isNaN(when.getTime())) return Alert.alert('Use a date like 2026-09-14 09:30');
-    const isGame = /game|match|vs\.?|@/i.test(newEvent.title);
+    if (!newEvent.title.trim()) return Alert.alert('Give the event a title.');
+    const mins = Math.max(15, Number(newEvent.minutes) || 60);
     const { error } = await supabase.from('events').insert({
       team_id: id,
       title: newEvent.title.trim(),
-      type: isGame ? 'game' : 'practice',
-      starts_at: when.toISOString(),
-      ends_at: new Date(when.getTime() + (isGame ? 90 : 60) * 60000).toISOString(),
+      type: newEvent.type,
+      starts_at: newEvent.when.toISOString(),
+      ends_at: new Date(newEvent.when.getTime() + mins * 60000).toISOString(),
       location_name: newEvent.location.trim() || null,
     });
     if (error) return Alert.alert('Could not add event', error.message);
-    setNewEvent({ title: '', when: '', location: '' });
+    setNewEvent((s) => ({ ...s, title: '', location: '' }));
+    setAdding(false);
     await load();
   }
 
@@ -102,14 +116,13 @@ export default function TeamSpace() {
 
   const groups = groupByDay(events, (e) => new Date(e.starts_at));
   const myKidsNotOnRoster = athletes.filter((a) => !roster.some((r) => r.id === a.id));
+  const heroId = events.find((e) => !e.cancelled)?.event_id;
 
   return (
-    <Screen>
-      <Pressable onPress={() => router.back()} style={{ paddingVertical: space.sm }}>
-        <Text color="accent">‹ Back</Text>
-      </Pressable>
-      <Row>
-        <Avatar name={team.name} color={team.color} size={48} />
+    <Screen glow>
+      <BackLink onPress={() => router.back()} />
+      <Row gap={space.md}>
+        <Avatar name={team.name} color={team.color} size={52} />
         <View style={{ flex: 1 }}>
           <Text variant="h1">{team.name}</Text>
           <Text variant="small" color="muted">
@@ -119,73 +132,82 @@ export default function TeamSpace() {
         </View>
       </Row>
 
-      <Card style={{ marginTop: space.lg, backgroundColor: t.accentSoft, borderColor: t.accentSoft }}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <View>
-            <Text variant="label" color="accent">
-              Team code
-            </Text>
-            <Text variant="display" color="accent" style={{ letterSpacing: 4 }}>
-              {team.join_code}
-            </Text>
-          </View>
-          <Button title="Share invite" onPress={share} />
-        </Row>
-      </Card>
-
-      <Row style={{ marginTop: space.xl }}>
-        {(['schedule', 'people', 'settings'] as const).map((k) => (
-          <Chip key={k} label={k[0].toUpperCase() + k.slice(1)} selected={tab === k} onPress={() => setTab(k)} />
-        ))}
+      <Row style={{ marginTop: space.lg }} gap={space.sm}>
+        <View style={{ flex: 1 }}>
+          <Button title={unread ? `Chat · ${unread} new` : 'Team chat'} icon={<ChatIcon color={t.accentInk} size={20} />} onPress={() => router.push({ pathname: '/team/chat', params: { id } })} />
+        </View>
+        <Button title={team.join_code} kind="secondary" icon={<ShareIcon color={t.ink} size={18} />} onPress={share} />
       </Row>
+
+      <View style={{ marginTop: space.lg }}>
+        <Segments value={tab} onChange={setTab} items={[{ key: 'schedule', label: 'Schedule' }, { key: 'people', label: 'People' }, { key: 'settings', label: 'Settings' }]} />
+      </View>
 
       {tab === 'schedule' ? (
         <View>
           {team.ics_url ? (
-            <Row style={{ marginTop: space.lg, justifyContent: 'space-between' }}>
-              <Text variant="small" color="muted" style={{ flex: 1 }}>
+            <Row style={{ marginTop: space.md, justifyContent: 'space-between' }}>
+              <Text variant="small" color={team.ics_last_error ? 'signal' : 'faint'} style={{ flex: 1 }}>
                 {team.ics_last_error
                   ? `Last sync failed: ${team.ics_last_error}`
                   : team.ics_last_synced_at
-                    ? `Synced from linked calendar ${new Date(team.ics_last_synced_at).toLocaleString()}`
+                    ? `Synced ${new Date(team.ics_last_synced_at).toLocaleString()}`
                     : 'Linked calendar has not synced yet.'}
               </Text>
-              <Chip label={syncing ? 'Syncing...' : 'Sync now'} tone="accent" onPress={syncing ? undefined : syncNow} />
+              <Button title={syncing ? 'Syncing' : 'Sync'} kind="ghost" size="sm" icon={<SyncIcon color={t.accent} size={16} />} onPress={syncNow} loading={syncing} />
             </Row>
+          ) : null}
+          {isStaff ? (
+            <View style={{ marginTop: space.md }}>
+              {!adding ? (
+                <Button title="Add an event" kind="secondary" onPress={() => setAdding(true)} />
+              ) : (
+                <Card raised>
+                  <Stack>
+                    <Text variant="h3">New event</Text>
+                    <Row>
+                      {(['practice', 'game', 'tournament', 'other'] as EventType[]).map((k) => (
+                        <Chip key={k} label={k[0].toUpperCase() + k.slice(1)} selected={newEvent.type === k} onPress={() => setNewEvent((s) => ({ ...s, type: k, minutes: k === 'game' ? '90' : k === 'tournament' ? '240' : '60' }))} />
+                      ))}
+                    </Row>
+                    <Input label="Title" placeholder={newEvent.type === 'game' ? 'Sharks vs Puyallup' : 'Practice'} value={newEvent.title} onChangeText={(v) => setNewEvent((s) => ({ ...s, title: v }))} />
+                    <DateTimeField label="Starts" value={newEvent.when} onChange={(d) => setNewEvent((s) => ({ ...s, when: d }))} />
+                    <Row>
+                      <View style={{ flex: 1 }}>
+                        <Input label="Length (min)" keyboardType="number-pad" value={newEvent.minutes} onChangeText={(v) => setNewEvent((s) => ({ ...s, minutes: v }))} />
+                      </View>
+                      <View style={{ flex: 2 }}>
+                        <Input label="Location" placeholder="Fort Steilacoom Park, Field 4" value={newEvent.location} onChangeText={(v) => setNewEvent((s) => ({ ...s, location: v }))} />
+                      </View>
+                    </Row>
+                    <Row>
+                      <View style={{ flex: 1 }}>
+                        <Button title="Add to schedule" onPress={addEvent} />
+                      </View>
+                      <Button title="Cancel" kind="ghost" onPress={() => setAdding(false)} />
+                    </Row>
+                  </Stack>
+                </Card>
+              )}
+            </View>
           ) : null}
           {events.length === 0 ? (
             <View style={{ marginTop: space.lg }}>
-              <Empty
-                title="No upcoming events"
-                body={isStaff ? 'Paste a schedule link in Settings, or add events below.' : 'The manager has not added the schedule yet.'}
-              />
+              <Empty title="No upcoming events" body={isStaff ? 'Paste a schedule link in Settings, or add events above.' : 'The manager has not added the schedule yet.'} />
             </View>
           ) : null}
           {groups.map((g) => (
-            <View key={g.day.toISOString()} style={{ marginTop: space.lg }}>
-              <Text variant="h3" style={{ marginBottom: space.sm }}>
-                {dayLabel(g.day)}
+            <View key={g.day.toISOString()} style={{ marginTop: space.xl }}>
+              <Text variant="label" color="faint" style={{ marginBottom: space.md }}>
+                {dayLabel(g.day).toUpperCase()}
               </Text>
-              <Stack gap={space.sm}>
+              <Stack gap={space.md}>
                 {g.items.map((ev) => (
-                  <EventCard key={ev.event_id} ev={ev} athletes={athletes} />
+                  <EventCard key={ev.event_id} ev={ev} athletes={athletes} hero={ev.event_id === heroId} />
                 ))}
               </Stack>
             </View>
           ))}
-          {isStaff ? (
-            <View style={{ marginTop: space.xl }}>
-              <SectionHeader title="Add an event" />
-              <Card>
-                <Stack>
-                  <Input placeholder="Practice, or Game vs Puyallup" value={newEvent.title} onChangeText={(v) => setNewEvent((s) => ({ ...s, title: v }))} />
-                  <Input placeholder="2026-09-14 09:30" value={newEvent.when} onChangeText={(v) => setNewEvent((s) => ({ ...s, when: v }))} autoCapitalize="none" />
-                  <Input placeholder="Fort Steilacoom Park, Field 3" value={newEvent.location} onChangeText={(v) => setNewEvent((s) => ({ ...s, location: v }))} />
-                  <Button title="Add event" kind="secondary" onPress={addEvent} />
-                </Stack>
-              </Card>
-            </View>
-          ) : null}
         </View>
       ) : null}
 
@@ -199,7 +221,7 @@ export default function TeamSpace() {
           ) : null}
           <Row style={{ flexWrap: 'wrap' }}>
             {roster.map((a) => (
-              <Chip key={a.id} label={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`} />
+              <Chip key={a.id} label={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`} dot={a.color} />
             ))}
           </Row>
           {myKidsNotOnRoster.length ? (
@@ -225,7 +247,7 @@ export default function TeamSpace() {
               />
             ))}
           </Stack>
-          <Text variant="small" color="muted" style={{ marginTop: space.md }}>
+          <Text variant="small" color="faint" style={{ marginTop: space.md }}>
             Adults on this team can see each other's names and phone numbers so carpools work. Kids are shown by first name and last initial only.
           </Text>
         </View>
@@ -234,15 +256,16 @@ export default function TeamSpace() {
       {tab === 'settings' ? (
         <View>
           <SectionHeader title="Linked calendar" />
-          {isStaff ? <LinkedCalendar team={team} onSaved={load} /> : (
+          {isStaff ? (
+            <LinkedCalendar team={team} onSaved={load} />
+          ) : (
             <Text variant="small" color="muted">
               Only the manager or coach can change the schedule link.
             </Text>
           )}
           <SectionHeader title="Your role" />
           <Text variant="small" color="muted">
-            You are a {myRole ?? 'member'} on this team.{' '}
-            {isStaff ? 'You can add events, edit the schedule link and remove people.' : 'You can offer rides, request rides and sign up for slots.'}
+            You are a {myRole ?? 'member'} on this team. {isStaff ? 'You can add events, edit the schedule link and remove people.' : 'You can RSVP, offer rides, request rides and sign up for slots.'}
           </Text>
           <View style={{ marginTop: space.xl }}>
             <Button

@@ -1,11 +1,11 @@
 import { Barlow_400Regular, Barlow_500Medium, Barlow_600SemiBold } from '@expo-google-fonts/barlow';
-import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
+import { BarlowCondensed_600SemiBold, BarlowCondensed_700Bold, BarlowCondensed_800ExtraBold } from '@expo-google-fonts/barlow-condensed';
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -39,7 +39,7 @@ function Gate() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: t.bg },
-        animation: 'fade_from_bottom',
+        animation: 'slide_from_right',
       }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
@@ -47,6 +47,7 @@ function Gate() {
       <Stack.Screen name="event/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="team/[id]" />
       <Stack.Screen name="team/new" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="team/chat" options={{ presentation: 'card' }} />
       <Stack.Screen name="team/join" options={{ presentation: 'modal' }} />
       <Stack.Screen name="athlete/new" options={{ presentation: 'modal' }} />
       <Stack.Screen name="join/[code]" />
@@ -55,13 +56,14 @@ function Gate() {
 }
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
   const [loaded] = useFonts({
     Barlow_400Regular,
     Barlow_500Medium,
     Barlow_600SemiBold,
     BarlowCondensed_600SemiBold,
     BarlowCondensed_700Bold,
+    BarlowCondensed_800ExtraBold,
+    JetBrainsMono_500Medium,
   });
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SessionProvider>
-          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <StatusBar style="light" />
           <Gate />
         </SessionProvider>
       </SafeAreaProvider>

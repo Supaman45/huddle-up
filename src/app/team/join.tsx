@@ -80,7 +80,7 @@ export default function JoinTeam({ initialCode }: { initialCode?: string }) {
           </Text>
         ) : null}
         {peek ? (
-          <Card accent={peek.color}>
+          <Card raised rail={peek.color} style={{ paddingLeft: space.xl }}>
             <Row>
               <Avatar name={peek.name} color={peek.color} size={44} />
               <View style={{ flex: 1 }}>

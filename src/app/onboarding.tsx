@@ -88,7 +88,7 @@ export default function Onboarding() {
         </Text>
         <Stack style={{ marginTop: space.sm }}>
           {kids.map((k, i) => (
-            <Card key={i} accent={k.color}>
+            <Card key={i} rail={k.color} style={{ paddingLeft: space.xl }}>
               <Row gap={space.sm}>
                 <View style={{ flex: 2 }}>
                   <Input placeholder="First name" value={k.first_name} onChangeText={(v) => updateKid(i, { first_name: v })} />
