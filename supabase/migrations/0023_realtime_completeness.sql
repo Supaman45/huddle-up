@@ -1,0 +1,11 @@
+-- Applied live via MCP as migration `realtime_completeness`.
+--
+-- 1. Tables added since launch were never in the supabase_realtime publication, so nothing
+--    could hear about them. `activity` was the worst of those: it IS the what-changed
+--    surface, and it was the one table guaranteed never to update live.
+--
+-- 2. REPLICA IDENTITY FULL on the tables whose DELETES matter. By default a delete carries
+--    only the primary key, so a cancelled ride arrives as "row <uuid> is gone" with no
+--    event_id, and a subscriber cannot tell which screen to refresh or which card to flash.
+--    Cancelling a ride, dropping an RSVP and giving up a snack slot are among the most
+--    common things a parent does, so those deletes have to carry their row.

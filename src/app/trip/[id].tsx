@@ -10,6 +10,7 @@ import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { Athlete, Event, MyEvent, Trip, TripRosterRow } from '@/lib/types';
+import { useLive } from '@/providers/live';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
 
@@ -53,6 +54,8 @@ export default function TripScreen() {
       load();
     }, [load]),
   );
+
+  useLive(load);
 
   async function setGoing(athlete: Athlete, going: boolean) {
     const { error } = await supabase.from('trip_attendance').upsert(

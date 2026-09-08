@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
-import { Linking, Platform, Pressable, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Linking, Platform, Pressable, View } from 'react-native';
 
 import { CarIcon } from '@/components/icons';
 import { Avatar, Button, Card, Chip, Row, Text } from '@/components/ui';
 import { rangeLabel, timeLabel } from '@/lib/dates';
-import { space, useTheme } from '@/lib/theme';
+import { radius, space, useTheme } from '@/lib/theme';
 import { rideLine, rideState } from '@/lib/carpool';
 import type { Athlete, MyEvent } from '@/lib/types';
+import { useAnimatedValue } from '@/lib/animation';
+import { useEventChangedAt } from '@/providers/live';
 
 const typeLabel: Record<string, string> = { game: 'Game', practice: 'Practice', tournament: 'Tournament', other: 'Event' };
 
@@ -26,6 +29,26 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
   const unansweredMine = kids.filter((k) => !ev.my_rsvps?.[k.id]).length;
 
   // The whole point of a matched ride is reaching the driver on Saturday morning.
+  // A change that arrives while you are looking at the screen should be seen, not just be
+  // true. One slow pulse of the rail colour: enough to catch the eye across a kitchen, not
+  // enough to be a toy. It never fires on first render, only when this event actually moved.
+  const changedAt = useEventChangedAt(ev.event_id);
+  const seenChange = useRef(changedAt);
+  const flash = useAnimatedValue(0);
+  useEffect(() => {
+    // Seeded with the value at mount, so a card that renders after a change does not flash
+    // for something the parent has already seen. Only a change that lands while they are
+    // looking gets a pulse.
+    if (changedAt === seenChange.current) return;
+    seenChange.current = changedAt;
+    if (changedAt === undefined) return;
+    flash.setValue(0);
+    Animated.sequence([
+      Animated.timing(flash, { toValue: 1, duration: 220, useNativeDriver: false }),
+      Animated.timing(flash, { toValue: 0, duration: 1400, useNativeDriver: false }),
+    ]).start();
+  }, [changedAt, flash]);
+
   const canText = state === 'matched' && !!ev.ride_driver_phone;
   function textDriver() {
     const num = (ev.ride_driver_phone ?? '').replace(/[^\d+]/g, '');
@@ -34,7 +57,13 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
   }
 
   return (
-    <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10, opacity: ev.cancelled ? 0.6 : 1 }}>
+    <Animated.View
+      style={{
+        borderRadius: radius.lg,
+        backgroundColor: flash.interpolate({ inputRange: [0, 1], outputRange: ['transparent', rail] }),
+        padding: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 3] }),
+      }}>
+      <Card rail={rail} raised={hero} style={{ paddingLeft: space.xl, gap: 10, opacity: ev.cancelled ? 0.6 : 1 }}>
       <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => ({ gap: 10, opacity: pressed ? 0.85 : 1 })}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1, gap: 2 }}>
@@ -127,6 +156,7 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
           </View>
         </Row>
       ) : null}
-    </Card>
+      </Card>
+    </Animated.View>
   );
 }

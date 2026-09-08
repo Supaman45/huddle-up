@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 
 import { DateTimeField } from '@/components/date-time-field';
@@ -15,6 +15,7 @@ import { dayLabel, rangeLabel, timeLabel } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { Athlete, CarpoolOffer, CarpoolRequest, Event, EventType, Game, Rsvp, RsvpStatus, SignupSlot, Team, TeamPlace, TeamRole } from '@/lib/types';
+import { useLive } from '@/providers/live';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
 
@@ -55,6 +56,10 @@ export default function EventScreen() {
   const [staleAt, setStaleAt] = useState<number | null>(null);
 
   const load = useCallback(async () => {
+    // Deep-linking straight to this screen on the web runs the first load before the session
+    // provider has a profile. Returning here is correct: profile is in the dep list, so the
+    // load re-runs the moment it arrives.
+    if (!profile) return;
     const { data: ev, error: evErr } = await supabase.from('events').select('*').eq('id', id).single();
     if (evErr || !ev) {
       // Standing at the field with one bar: show what we last saw, dated, rather than a
@@ -83,7 +88,7 @@ export default function EventScreen() {
       supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', ev.team_id),
       supabase.from('rsvps').select('*, athlete:athletes(*)').eq('event_id', id),
       supabase.from('games').select('*').eq('event_id', id).maybeSingle(),
-      supabase.from('team_members').select('role').eq('team_id', ev.team_id).eq('profile_id', profile!.id).maybeSingle(),
+      supabase.from('team_members').select('role').eq('team_id', ev.team_id).eq('profile_id', profile.id).maybeSingle(),
       supabase.rpc('away_athletes', { p_event_id: id }),
       ev.location_name
         ? supabase.from('team_places').select('*').eq('team_id', ev.team_id).ilike('name', ev.location_name).maybeSingle()
@@ -117,20 +122,7 @@ export default function EventScreen() {
     }, [load]),
   );
 
-  useEffect(() => {
-    const ch = supabase
-      .channel(`event-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_offers', filter: `event_id=eq.${id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'carpool_requests', filter: `event_id=eq.${id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rsvps', filter: `event_id=eq.${id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `event_id=eq.${id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_claims' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'signup_slots', filter: `event_id=eq.${id}` }, load)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [id, load]);
+  useLive(load);
 
   if (!event || !team) {
     return (

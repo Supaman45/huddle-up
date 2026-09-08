@@ -6,6 +6,7 @@ import { Pressable, RefreshControl, View } from 'react-native';
 import { BallIcon, CalendarIcon, CarIcon, SnackIcon, TrophyIcon, XIcon } from '@/components/icons';
 import { Card, Chip, Empty, Loading, NavBar, Row, Screen, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
+import { useLive } from '@/providers/live';
 import { space, useTheme } from '@/lib/theme';
 import type { ActivityKind, ActivityRow } from '@/lib/types';
 
@@ -63,6 +64,8 @@ export default function Activity() {
       load();
     }, [load]),
   );
+
+  useLive(load);
 
   const teams = useMemo(() => {
     const m = new Map<string, { id: string; name: string; color: string }>();

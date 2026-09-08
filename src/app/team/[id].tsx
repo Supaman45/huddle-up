@@ -16,6 +16,7 @@ import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel, useTheme } from '@/lib/theme';
 import type { Athlete, EventType, LeaderRow, MyEvent, Team, TeamMember, TeamRecord } from '@/lib/types';
+import { useLive } from '@/providers/live';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
 
@@ -56,6 +57,7 @@ export default function TeamSpace() {
   const isStaff = myRole === 'manager' || myRole === 'coach';
 
   const load = useCallback(async () => {
+    if (!profile) return;
     const from = new Date();
     from.setHours(0, 0, 0, 0);
     const to = new Date(from);
@@ -65,7 +67,7 @@ export default function TeamSpace() {
       supabase.from('team_members').select('*, profile:profiles(*)').eq('team_id', id),
       supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', id),
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
-      supabase.from('team_reads').select('last_read_at').eq('team_id', id).eq('profile_id', profile!.id).maybeSingle(),
+      supabase.from('team_reads').select('last_read_at').eq('team_id', id).eq('profile_id', profile.id).maybeSingle(),
     ]);
     setTeam(tm as Team);
     setMembers(mem ?? []);
@@ -80,7 +82,7 @@ export default function TeamSpace() {
     setResults((fin as FinalGame[]) ?? []);
     setLeaders(led ?? []);
     const since = (rd as { last_read_at: string } | null)?.last_read_at ?? '1970-01-01';
-    const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('team_id', id).gt('created_at', since).neq('author_id', profile!.id);
+    const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('team_id', id).gt('created_at', since).neq('author_id', profile.id);
     setUnread(count ?? 0);
   }, [id, profile]);
 
@@ -89,6 +91,8 @@ export default function TeamSpace() {
       load();
     }, [load]),
   );
+
+  useLive(load);
 
   async function share() {
     if (!team) return;

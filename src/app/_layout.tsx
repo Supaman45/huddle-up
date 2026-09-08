@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/lib/theme';
+import { LiveProvider } from '@/providers/live';
 import { SessionProvider, useSession } from '@/providers/session';
 import { ToastProvider } from '@/providers/toast';
 
@@ -80,10 +81,12 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SessionProvider>
-          <ToastProvider>
+          <LiveProvider>
+            <ToastProvider>
             <StatusBar style="light" />
             <Gate />
-          </ToastProvider>
+            </ToastProvider>
+          </LiveProvider>
         </SessionProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

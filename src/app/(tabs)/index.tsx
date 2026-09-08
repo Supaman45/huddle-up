@@ -1,6 +1,6 @@
 import { addMonths, format, isSameDay, isToday, startOfDay } from 'date-fns';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { MyEvent } from '@/lib/types';
+import { useLive } from '@/providers/live';
 import { useSession } from '@/providers/session';
 
 const CACHE_KEY = 'my-events';
@@ -33,6 +34,7 @@ export default function ThisWeek() {
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [month, setMonth] = useState(() => new Date());
   const [selected, setSelected] = useState(() => startOfDay(new Date()));
+  const hydrated = useRef(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -40,7 +42,12 @@ export default function ThisWeek() {
     const to = addMonths(from, 14);
 
     // Fields have one bar. Show what we saw last, immediately, then correct it.
-    if (events === null) {
+    // Guarded by a ref, not by reading `events`: depending on state that this function also
+    // sets makes `load` a new function on every fetch, which makes the focus effect re-fire,
+    // which fetches again. That is an infinite refetch loop, and it is invisible until you
+    // look at the network tab or the bill.
+    if (!hydrated.current) {
+      hydrated.current = true;
       const cached = await readCache<MyEvent[]>(CACHE_KEY);
       if (cached) {
         setEvents(cached.value);
@@ -71,13 +78,15 @@ export default function ThisWeek() {
     setTeamCount(count ?? 0);
     setNews((unread as number) ?? 0);
     await writeCache(CACHE_KEY, rows);
-  }, [profile, events]);
+  }, [profile]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  useLive(load);
 
   async function onRefresh() {
     setRefreshing(true);

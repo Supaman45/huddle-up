@@ -37,7 +37,8 @@ export default function TeamChat() {
   const list = useRef<FlatList<Message>>(null);
 
   const load = useCallback(async () => {
-    const { data: role } = await supabase.from('team_members').select('role').eq('team_id', id).eq('profile_id', profile!.id).maybeSingle();
+    if (!profile) return;
+    const { data: role } = await supabase.from('team_members').select('role').eq('team_id', id).eq('profile_id', profile.id).maybeSingle();
     setIsStaff(role?.role === 'manager' || role?.role === 'coach');
     const [{ data: tm }, { data: ms }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
@@ -56,7 +57,7 @@ export default function TeamChat() {
       const { data } = await supabase.storage.from('team-media').createSignedUrls(paths, 3600);
       if (data) setUrls((u) => ({ ...u, ...Object.fromEntries(data.filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string])) }));
     }
-    await supabase.from('team_reads').upsert({ team_id: id, profile_id: profile!.id, last_read_at: new Date().toISOString() });
+    await supabase.from('team_reads').upsert({ team_id: id, profile_id: profile.id, last_read_at: new Date().toISOString() });
   }, [id, profile, urls]);
 
   useEffect(() => {
