@@ -1,0 +1,12 @@
+-- Applied live via MCP as migration `rotate_ics_token_explicit_household`.
+--
+-- The first rotate_ics_token() resolved the caller's household with `limit 1`. Latent today
+-- because nobody belongs to two households, but an adult in two households is exactly what
+-- happens when co-parents separate and each runs one, which this app has to get right.
+-- With `limit 1`, a parent looking at household A could rotate household B: the screen would
+-- show B's token as A's, and B's calendar subscriptions would die with no explanation.
+--
+-- The household is now an explicit argument and membership is checked. Any adult in the
+-- household may rotate, not only the owner: when a link leaks, killing it fast matters more
+-- than ceremony. Verified by a test that rotates a foreign household, expects the refusal,
+-- and asserts NEITHER token moved.

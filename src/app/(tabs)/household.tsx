@@ -19,11 +19,19 @@ interface Member {
 
 const consentLabel = { household: 'Private to household', team: 'Team can see photos', shareable: 'Shareable' } as const;
 
+// The calendar feed authenticates on the token in the URL, because no calendar app can send
+// a header. The token is therefore the secret: it lands in browser history, in any proxy log
+// and in our own edge logs, which is why rotating has to be one tap and honestly labelled.
+const FEED_BASE = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/calendar-feed`;
+const feedUrl = (token: string, scheme: 'https' | 'webcal' = 'https') =>
+  `${FEED_BASE.replace(/^https/, scheme)}?t=${token}`;
+
 export default function HouseholdScreen() {
   const { household, athletes, profile, refresh } = useSession();
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [icsToken, setIcsToken] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -52,6 +60,33 @@ export default function HouseholdScreen() {
       await Clipboard.setStringAsync(msg);
       Alert.alert('Copied', 'Invite text copied to your clipboard.');
     }
+  }
+
+  function confirmRotate() {
+    const others = members.filter((m) => m.profile.id !== profile?.id).length;
+    Alert.alert(
+      'Replace the calendar link?',
+      others > 0
+        ? `The old link stops working straight away. You and the other ${others === 1 ? 'adult' : `${others} adults`} in your household all have to add the new one, or your calendars quietly stop updating.`
+        : 'The old link stops working straight away, and you will need to add the new one to your calendar.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Replace it',
+          style: 'destructive',
+          onPress: async () => {
+            if (!household) return;
+            setRotating(true);
+            const { data, error } = await supabase.rpc('rotate_ics_token', { p_household_id: household.id });
+            setRotating(false);
+            if (error) return toast(error.message, { tone: 'error' });
+            setIcsToken(data);
+            await Clipboard.setStringAsync(feedUrl(data));
+            toast('New link copied. The old one is dead. Send this to the other adults.');
+          },
+        },
+      ],
+    );
   }
 
   async function cycleConsent(id: string, current: 'household' | 'team' | 'shareable') {
@@ -123,8 +158,7 @@ export default function HouseholdScreen() {
               title="Add to my calendar"
               onPress={() => {
                 if (!icsToken) return;
-                const url = `webcal://ftaxrqwsscitsqrqedxm.supabase.co/functions/v1/calendar-feed?t=${icsToken}`;
-                Linking.openURL(url).catch(() => toast('Copy the link instead and add it in your calendar app.', { tone: 'signal' }));
+                Linking.openURL(feedUrl(icsToken, 'webcal')).catch(() => toast('Copy the link instead and add it in your calendar app.', { tone: 'signal' }));
               }}
             />
           </View>
@@ -133,25 +167,15 @@ export default function HouseholdScreen() {
             kind="secondary"
             onPress={async () => {
               if (!icsToken) return;
-              await Clipboard.setStringAsync(`https://ftaxrqwsscitsqrqedxm.supabase.co/functions/v1/calendar-feed?t=${icsToken}`);
+              await Clipboard.setStringAsync(feedUrl(icsToken));
               toast('Calendar link copied');
             }}
           />
         </Row>
         <Text variant="small" color="faint">
-          Anyone with this link can see your household’s schedule, so share it only with your own people. Tap below to make a new link if it ever gets out.
+          The link is the password. Anyone holding it can see where your kids are and when, with no sign-in, so send it only to your own people. If it ever gets out, replace it below.
         </Text>
-        <Button
-          title="Make a new link"
-          kind="ghost"
-          size="sm"
-          onPress={async () => {
-            const { data, error } = await supabase.rpc('rotate_ics_token');
-            if (error) return toast(error.message, { tone: 'error' });
-            setIcsToken(data as string);
-            toast('New link made. The old one stopped working.');
-          }}
-        />
+        <Button title="Replace this link" kind="ghost" size="sm" onPress={confirmRotate} loading={rotating} />
       </Card>
       <View style={{ height: 20 }} />
     </Screen>

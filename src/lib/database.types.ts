@@ -338,7 +338,7 @@ export type Database = {
         Args: { p_code: string };
         Returns: { color: string; id: string; name: string; season: string; sport: Database['public']['Enums']['sport'] }[];
       };
-      rotate_ics_token: { Args: never; Returns: string };
+      rotate_ics_token: { Args: { p_household_id: string }; Returns: string };
       rotate_signups: {
         Args: { p_team_id: string; p_kind?: Database['public']['Enums']['slot_kind']; p_title?: string; p_from?: string; p_to?: string };
         Returns: number;
