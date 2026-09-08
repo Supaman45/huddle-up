@@ -29,6 +29,15 @@ export default function Me() {
   const t = useTheme();
   const [name, setName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
+  // On a direct load the profile arrives after the first render, and a form seeded from null
+  // would sit empty and then overwrite a real name with '' on Save. Re-seed once per profile,
+  // in render, which is React's documented way to adjust state when a prop changes.
+  const [seededFor, setSeededFor] = useState<string | null>(profile?.id ?? null);
+  if (profile && seededFor !== profile.id) {
+    setSeededFor(profile.id);
+    setName(profile.full_name ?? '');
+    setPhone(profile.phone ?? '');
+  }
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
 
