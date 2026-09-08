@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, Linking, Platform, Pressable, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
 
-import { CarIcon } from '@/components/icons';
 import { Avatar, Button, Card, Chip, Row, Text } from '@/components/ui';
 import { rangeLabel, timeLabel } from '@/lib/dates';
 import { radius, space, useTheme } from '@/lib/theme';
-import { rideLine, rideState } from '@/lib/carpool';
+import { rideState } from '@/lib/carpool';
 import type { Athlete, MyEvent } from '@/lib/types';
 import { useAnimatedValue } from '@/lib/animation';
 import { useEventChangedAt } from '@/providers/live';
@@ -49,12 +48,8 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
     ]).start();
   }, [changedAt, flash]);
 
-  const canText = state === 'matched' && !!ev.ride_driver_phone;
-  function textDriver() {
-    const num = (ev.ride_driver_phone ?? '').replace(/[^\d+]/g, '');
-    const body = encodeURIComponent(`Hi ${ev.ride_driver}, checking on the ride to ${ev.title}.`);
-    Linking.openURL(Platform.OS === 'ios' ? `sms:${num}&body=${body}` : `sms:${num}?body=${body}`).catch(() => {});
-  }
+  // Ride detail lives on the Carpool tab. The card carries one pill, and the pill goes there.
+  const toCarpool = () => router.push('/carpool');
 
   return (
     <Animated.View
@@ -81,9 +76,13 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
           {ev.cancelled ? (
             <Chip label="Cancelled" tone="signal" />
           ) : state === 'waiting' ? (
-            <Chip label="Needs ride" tone="signal" />
+            <Chip label="Needs ride" tone="signal" onPress={toCarpool} />
           ) : state === 'can_help' ? (
-            <Chip label={`${ev.open_requests} need ${ev.open_requests === 1 ? 'a ride' : 'rides'}`} tone="signal" />
+            <Chip label={`${ev.open_requests} need ${ev.open_requests === 1 ? 'a ride' : 'rides'}`} tone="signal" onPress={toCarpool} />
+          ) : state === 'matched' ? (
+            <Chip label={ev.ride_driver ? `With ${ev.ride_driver.split(' ')[0]}` : 'Ride set'} tone="accent" onPress={toCarpool} />
+          ) : state === 'driving_open' || state === 'driving_full' ? (
+            <Chip label="Driving" tone="accent" onPress={toCarpool} />
           ) : ev.type === 'game' ? (
             <Chip label={`Arrive ${timeLabel(arriveAt)}`} tone="accent" />
           ) : (
@@ -94,13 +93,10 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
         <View style={{ height: 1, backgroundColor: t.lineStrong }} />
 
         <Row style={{ justifyContent: 'space-between' }}>
-          <Row gap={10} style={{ flex: 1 }}>
-            <CarIcon color={urgent ? t.signal : settled ? t.accent : t.faint} size={20} />
-            <Text variant="small" style={{ flex: 1 }} color={urgent ? 'signal' : undefined}>
-              {rideLine(ev, state)}
-              {ev.going > 0 ? <Text variant="small" color="muted">{`  ·  ${ev.going} going`}</Text> : null}
-            </Text>
-          </Row>
+          <Text variant="small" color="muted">
+            {ev.going > 0 ? `${ev.going} going` : 'No RSVPs yet'}
+            {ev.open_slots > 0 ? `  ·  ${ev.open_slots} ${ev.open_slots === 1 ? 'slot' : 'slots'} open` : ''}
+          </Text>
           <Row gap={0}>
             {kids.map((k, i) => (
               <View key={k.id} style={{ marginLeft: i === 0 ? 0 : -8 }}>
@@ -109,51 +105,34 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
             ))}
           </Row>
         </Row>
-
-        {/* The pickup note is the practical half of a matched ride: where and when. */}
-        {state === 'matched' && ev.ride_note ? (
-          <Text variant="small" color="muted" style={{ marginLeft: 30 }}>
-            {ev.ride_note}
-          </Text>
-        ) : null}
       </Pressable>
 
       {hero && !ev.cancelled ? (
         <Row gap={8} style={{ marginTop: 2 }}>
-          {/* The first button is whatever this parent's next move actually is. */}
-          {state === 'can_help' ? (
-            <View style={{ flex: 1 }}>
-              <Button title="I can drive" size="sm" onPress={open} />
-            </View>
-          ) : canText ? (
-            <View style={{ flex: 1 }}>
-              <Button title={`Text ${ev.ride_driver}`} size="sm" onPress={textDriver} />
-            </View>
-          ) : state === 'driving_open' || state === 'driving_full' ? (
-            <View style={{ flex: 1 }}>
-              <Button title="Manage my car" size="sm" onPress={open} />
-            </View>
-          ) : state === 'quiet' ? (
-            <View style={{ flex: 1 }}>
-              <Button title="I can drive" size="sm" onPress={open} />
-            </View>
-          ) : null}
+          {/* One row, two buttons: the RSVP that is owed, and the details. Ride actions are on the Carpool tab. */}
           <View style={{ flex: 1 }}>
             <Button
               title={
                 unansweredMine > 0
                   ? `RSVP ${unansweredMine === 1 ? (kids.find((k) => !ev.my_rsvps?.[k.id])?.first_name ?? '') : `${unansweredMine} kids`}`
-                  : state === 'waiting'
-                    ? 'See who is going'
-                    : ev.open_slots > 0
-                      ? `Snacks: ${ev.open_slots} open`
-                      : 'Details'
+                  : ev.open_slots > 0
+                    ? `Snacks: ${ev.open_slots} open`
+                    : 'See who is going'
               }
-              kind={state === 'waiting' ? 'primary' : 'secondary'}
+              kind={unansweredMine > 0 ? 'primary' : 'secondary'}
               size="sm"
               onPress={open}
             />
           </View>
+          {urgent ? (
+            <View style={{ flex: 1 }}>
+              <Button title="Carpool" kind="signal" size="sm" onPress={toCarpool} />
+            </View>
+          ) : (
+            <View style={{ flex: 1 }}>
+              <Button title="Details" kind="secondary" size="sm" onPress={open} />
+            </View>
+          )}
         </Row>
       ) : null}
       </Card>

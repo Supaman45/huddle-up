@@ -322,6 +322,15 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: { actor_id: string; actor_name: string; body: string; created_at: string; event_id: string; id: string; is_new: boolean; kind: Database['public']['Enums']['activity_kind']; team_color: string; team_id: string; team_name: string; title: string }[];
       };
+      my_carpool: {
+        Args: { p_days?: number };
+        Returns: {
+          event_id: string; title: string; starts_at: string; location_name: string | null;
+          event_type: Database['public']['Enums']['event_type'];
+          team_id: string; team_name: string; team_color: string;
+          my_athlete_ids: string[]; requests: Json; offers: Json;
+        }[];
+      };
       my_events: {
         Args: { p_from: string; p_to: string };
         Returns: {

@@ -1,7 +1,8 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Switch, View } from 'react-native';
 
-import { Button, Card, Divider, Input, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
+import { BackLink, Button, Card, Divider, Input, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import { useSession } from '@/providers/session';
@@ -18,6 +19,7 @@ const DEFAULT_PREFS: Prefs = { reminders: true, schedule_changes: true, carpool:
 
 export default function Me() {
   const { profile, refresh, signOut } = useSession();
+  const router = useRouter();
   const toast = useToast();
   const t = useTheme();
   const [name, setName] = useState(profile?.full_name ?? '');
@@ -64,6 +66,8 @@ export default function Me() {
 
   return (
     <Screen>
+      {/* Settings lives behind the gear on Home, so it needs a way back. */}
+      <BackLink label="Home" onPress={() => router.replace('/(tabs)')} />
       <Text variant="h1">Settings</Text>
       <Text color="muted" style={{ marginTop: 4 }}>
         {profile?.email}

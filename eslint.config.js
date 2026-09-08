@@ -27,4 +27,9 @@ module.exports = [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // Build scripts run under Node, where __dirname and require are real.
+    files: ['scripts/**/*.js'],
+    languageOptions: { globals: { __dirname: 'readonly', require: 'readonly', module: 'readonly', process: 'readonly', console: 'readonly' } },
+  },
 ];

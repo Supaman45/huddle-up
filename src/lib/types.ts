@@ -46,6 +46,56 @@ export type TeamRecord = FnReturns<'team_record'>;
 export type LeaderRow = FnReturns<'team_leaders'>;
 export type SeenBy = FnReturns<'message_seen_by'>;
 
+/** A rider sitting in a specific car. */
+export interface CarpoolRider {
+  request_id: string;
+  athlete_id: string;
+  first_name: string;
+  last_initial: string;
+  color: string;
+  parent_name: string;
+  parent_phone: string | null;
+  mine: boolean;
+}
+
+/** A car offered for an event, with who is in it and how to reach the driver. */
+export interface CarpoolCar {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  driver_phone: string | null;
+  driver_email: string | null;
+  direction: RideDirection;
+  seats: number;
+  taken: number;
+  pickup_note: string | null;
+  mine: boolean;
+  riders: CarpoolRider[];
+}
+
+/** A request for a seat, open or already matched to a car. */
+export interface CarpoolAsk {
+  id: string;
+  athlete_id: string;
+  first_name: string;
+  last_initial: string;
+  color: string;
+  status: RequestStatus;
+  offer_id: string | null;
+  requested_by: string;
+  requester_name: string;
+  requester_phone: string | null;
+  mine: boolean;
+  created_at: string;
+}
+
+/** One upcoming event with its whole carpool picture, from my_carpool(). */
+export type CarpoolEvent = Omit<FnReturns<'my_carpool'>, 'requests' | 'offers' | 'location_name'> & {
+  location_name: string | null;
+  requests: CarpoolAsk[];
+  offers: CarpoolCar[];
+};
+
 /**
  * The generated types describe a function's OUT columns as non-null, which Postgres does
  * not guarantee: the ride fields are null unless a ride is matched, and the car fields are

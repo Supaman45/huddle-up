@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/event-card';
-import { BellIcon } from '@/components/icons';
+import { BellIcon, GearIcon } from '@/components/icons';
 import { MonthGrid } from '@/components/month-grid';
 import { OfflineNote } from '@/components/offline-note';
 import { Avatar, Button, Chip, Empty, Glow, Loading, Row, Segments, Stack, Text } from '@/components/ui';
@@ -136,6 +136,12 @@ export default function ThisWeek() {
                   <Text style={{ fontSize: 10, lineHeight: 12, color: t.accentInk, fontFamily: fonts.displayBold }}>{news > 9 ? '9+' : news}</Text>
                 </View>
               ) : null}
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/me')}
+              accessibilityLabel="Settings"
+              style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <GearIcon color={t.muted} size={22} />
             </Pressable>
             <Avatar name={profile?.full_name || profile?.email || '?'} size={34} />
           </Row>

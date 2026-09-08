@@ -1,0 +1,21 @@
+-- Applied live via MCP as migration `my_carpool_dashboard`.
+--
+-- my_carpool(p_days int default 21): one row per upcoming, non-cancelled event across every
+-- team the caller belongs to, with two jsonb arrays. `requests` is every open or matched ride
+-- request with the kid (first name + last initial), the requesting parent and their phone.
+-- `offers` is every car with the driver's name, phone and email, seats and seats taken, the
+-- pickup note, and a nested `riders` array of who is in it.
+--
+-- Why one RPC rather than four table reads: the Carpool tab is a dashboard, and a dashboard
+-- that assembles itself client-side from four subscriptions will show a half-updated state
+-- between the realtime events. One query, one consistent picture.
+--
+-- Contact details cross no new boundary. The `profiles` RLS policy is shares_context_with(id),
+-- so phone and email were already visible to teammates; this only puts them where the parent
+-- needs them.
+--
+-- SECURITY DEFINER, STABLE, search_path = public. EXECUTE revoked from anon. Every event is
+-- gated on team_members for auth.uid() INSIDE the body, so passing anything is harmless: the
+-- only argument is a day count, clamped to 1..120.
+--
+-- The definition is in the database; regenerate src/lib/database.types.ts after changing it.

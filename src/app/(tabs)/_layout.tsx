@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 
-import { BallIcon, GearIcon, HomeIcon, UsersIcon } from '@/components/icons';
+import { BallIcon, CarIcon, HomeIcon, UsersIcon } from '@/components/icons';
 import { fonts, useTheme } from '@/lib/theme';
 
 // Home is the schedule: the screen a parent opens ten times a week.
@@ -25,9 +25,12 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: t.bg },
       }}>
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color }) => <HomeIcon color={color} /> }} />
+      {/* Rides get their own tab so the schedule can stay a schedule. */}
+      <Tabs.Screen name="carpool" options={{ title: 'Carpool', tabBarIcon: ({ color }) => <CarIcon color={color} /> }} />
       <Tabs.Screen name="teams" options={{ title: 'Teams', tabBarIcon: ({ color }) => <BallIcon color={color} /> }} />
       <Tabs.Screen name="household" options={{ title: 'Family', tabBarIcon: ({ color }) => <UsersIcon color={color} /> }} />
-      <Tabs.Screen name="me" options={{ title: 'Settings', tabBarIcon: ({ color }) => <GearIcon color={color} /> }} />
+      {/* Settings is reached from the gear on Home. Hidden from the bar, still a route. */}
+      <Tabs.Screen name="me" options={{ href: null }} />
     </Tabs>
   );
 }
