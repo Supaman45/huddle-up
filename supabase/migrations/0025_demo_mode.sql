@@ -1,0 +1,19 @@
+-- Applied live via MCP as migration `demo_mode`.
+--
+-- Demo mode: a walkthrough team that loads on demand and tears down cleanly.
+--
+-- athletes.photo_url   A picture for a kid. The demo uses illustrated avatars; a real photo
+--                      later goes through the household's media_consent like any other media.
+-- teams.is_demo        Marks a demo team so reset can find every one and nothing from a real
+--                      season is ever mistaken for one.
+-- app_admins           Who may load or reset demo data. A table, not a hard-coded email, so a
+--                      second admin is a row rather than a deploy. RLS: members see only their
+--                      own row. Seeded with the founder's profile.
+-- is_app_admin()       SECURITY DEFINER, gated on auth.uid() in the body, EXECUTE revoked from
+--                      anon. The Settings screen uses it to decide whether to render the panel;
+--                      the `demo` edge function checks the table again server-side, so the
+--                      panel is a courtesy and the function is the gate.
+-- my_carpool()         Redefined to carry photo_url on requests and riders.
+--
+-- The `demo` edge function (supabase/functions/demo) creates the demo parents as real auth
+-- users under @demo.huddleup.test so every FK and every RLS policy behaves as in a season.

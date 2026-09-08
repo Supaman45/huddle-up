@@ -282,7 +282,7 @@ function EventBoard({
           {waiting.map((ask) => (
             <Row key={ask.id} style={{ justifyContent: 'space-between' }}>
               <Row gap={10} style={{ flex: 1 }}>
-                <Avatar name={ask.first_name} color={ask.color} size={30} ring={ask.mine ? t.signal : undefined} />
+                <Avatar name={ask.first_name} color={ask.color} uri={ask.photo_url} size={30} ring={ask.mine ? t.signal : undefined} />
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyMedium">{kidName(ask)}</Text>
                   <Text variant="small" color="muted">

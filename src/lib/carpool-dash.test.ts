@@ -22,6 +22,7 @@ function ask(over: Partial<CarpoolAsk> = {}): CarpoolAsk {
     first_name: 'Tyrone',
     last_initial: 'W',
     color: '#fff',
+    photo_url: null,
     status: 'open',
     offer_id: null,
     requested_by: 'p2',

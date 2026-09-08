@@ -34,10 +34,16 @@ export type Database = {
           { foreignKeyName: 'athlete_away_created_by_fkey'; columns: ['created_by']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
         ];
       };
+      app_admins: {
+        Row: { created_at: string; profile_id: string };
+        Insert: { created_at?: string; profile_id: string };
+        Update: { created_at?: string; profile_id?: string };
+        Relationships: [{ foreignKeyName: 'app_admins_profile_id_fkey'; columns: ['profile_id']; isOneToOne: true; referencedRelation: 'profiles'; referencedColumns: ['id'] }];
+      };
       athletes: {
-        Row: { birth_year: number | null; color: string; created_at: string; first_name: string; household_id: string; id: string; last_initial: string; media_consent: Database['public']['Enums']['media_consent'] };
-        Insert: { birth_year?: number | null; color?: string; created_at?: string; first_name: string; household_id: string; id?: string; last_initial?: string; media_consent?: Database['public']['Enums']['media_consent'] };
-        Update: { birth_year?: number | null; color?: string; created_at?: string; first_name?: string; household_id?: string; id?: string; last_initial?: string; media_consent?: Database['public']['Enums']['media_consent'] };
+        Row: { birth_year: number | null; color: string; created_at: string; first_name: string; household_id: string; id: string; last_initial: string; media_consent: Database['public']['Enums']['media_consent']; photo_url: string | null };
+        Insert: { birth_year?: number | null; color?: string; created_at?: string; first_name: string; household_id: string; id?: string; last_initial?: string; media_consent?: Database['public']['Enums']['media_consent']; photo_url?: string | null };
+        Update: { birth_year?: number | null; color?: string; created_at?: string; first_name?: string; household_id?: string; id?: string; last_initial?: string; media_consent?: Database['public']['Enums']['media_consent']; photo_url?: string | null };
         Relationships: [
           { foreignKeyName: 'athletes_household_id_fkey'; columns: ['household_id']; isOneToOne: false; referencedRelation: 'households'; referencedColumns: ['id'] },
         ];
@@ -271,9 +277,9 @@ export type Database = {
         ];
       };
       teams: {
-        Row: { accent_color: string | null; color: string; created_at: string; created_by: string; default_arrive_minutes: number; ics_last_error: string | null; ics_last_synced_at: string | null; ics_url: string | null; id: string; join_code: string; logo_path: string | null; name: string; season: string; sport: Database['public']['Enums']['sport']; timezone: string };
-        Insert: { accent_color?: string | null; color?: string; created_at?: string; created_by: string; default_arrive_minutes?: number; ics_last_error?: string | null; ics_last_synced_at?: string | null; ics_url?: string | null; id?: string; join_code?: string; logo_path?: string | null; name: string; season?: string; sport?: Database['public']['Enums']['sport']; timezone?: string };
-        Update: { accent_color?: string | null; color?: string; created_at?: string; created_by?: string; default_arrive_minutes?: number; ics_last_error?: string | null; ics_last_synced_at?: string | null; ics_url?: string | null; id?: string; join_code?: string; logo_path?: string | null; name?: string; season?: string; sport?: Database['public']['Enums']['sport']; timezone?: string };
+        Row: { accent_color: string | null; color: string; created_at: string; created_by: string; default_arrive_minutes: number; ics_last_error: string | null; ics_last_synced_at: string | null; ics_url: string | null; id: string; is_demo: boolean; join_code: string; logo_path: string | null; name: string; season: string; sport: Database['public']['Enums']['sport']; timezone: string };
+        Insert: { accent_color?: string | null; color?: string; created_at?: string; created_by: string; default_arrive_minutes?: number; ics_last_error?: string | null; ics_last_synced_at?: string | null; ics_url?: string | null; id?: string; is_demo?: boolean; join_code?: string; logo_path?: string | null; name: string; season?: string; sport?: Database['public']['Enums']['sport']; timezone?: string };
+        Update: { accent_color?: string | null; color?: string; created_at?: string; created_by?: string; default_arrive_minutes?: number; ics_last_error?: string | null; ics_last_synced_at?: string | null; ics_url?: string | null; id?: string; is_demo?: boolean; join_code?: string; logo_path?: string | null; name?: string; season?: string; sport?: Database['public']['Enums']['sport']; timezone?: string };
         Relationships: [
           { foreignKeyName: 'teams_created_by_fkey'; columns: ['created_by']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
         ];
@@ -318,6 +324,7 @@ export type Database = {
         Args: { p_message_id: string };
         Returns: { full_name: string; profile_id: string; seen: boolean }[];
       };
+      is_app_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       my_activity: {
         Args: { p_limit?: number };
         Returns: { actor_id: string; actor_name: string; body: string; created_at: string; event_id: string; id: string; is_new: boolean; kind: Database['public']['Enums']['activity_kind']; team_color: string; team_id: string; team_name: string; title: string }[];

@@ -19,6 +19,8 @@ export type ActivityKind = Enums<'activity_kind'>;
 export type Profile = Tables<'profiles'>;
 export type Household = Tables<'households'>;
 export type Athlete = Tables<'athletes'>;
+/** A roster row: the kid plus the number on their back for this team. */
+export type RosterAthlete = Athlete & { jersey_number: string | null };
 export type Team = Tables<'teams'>;
 export type Event = Tables<'events'>;
 export type Game = Tables<'games'>;
@@ -53,6 +55,7 @@ export interface CarpoolRider {
   first_name: string;
   last_initial: string;
   color: string;
+  photo_url: string | null;
   parent_name: string;
   parent_phone: string | null;
   mine: boolean;
@@ -80,6 +83,7 @@ export interface CarpoolAsk {
   first_name: string;
   last_initial: string;
   color: string;
+  photo_url: string | null;
   status: RequestStatus;
   offer_id: string | null;
   requested_by: string;

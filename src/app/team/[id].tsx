@@ -15,7 +15,7 @@ import { Avatar, Button, NavBar, Card, Chip, Empty, Input, ListRow, Loading, Row
 import { dayLabel, groupByDay } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { space, sportLabel, useTheme } from '@/lib/theme';
-import type { Athlete, EventType, LeaderRow, MyEvent, Team, TeamMember, TeamRecord } from '@/lib/types';
+import type { EventType, LeaderRow, MyEvent, RosterAthlete, Team, TeamMember, TeamRecord } from '@/lib/types';
 import { useLive } from '@/providers/live';
 import { useSession } from '@/providers/session';
 import { useToast } from '@/providers/toast';
@@ -36,7 +36,7 @@ export default function TeamSpace() {
   const toast = useToast();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [roster, setRoster] = useState<Athlete[]>([]);
+  const [roster, setRoster] = useState<RosterAthlete[]>([]);
   const [events, setEvents] = useState<MyEvent[]>([]);
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState<'schedule' | 'season' | 'people' | 'settings'>('schedule');
@@ -65,13 +65,13 @@ export default function TeamSpace() {
     const [{ data: tm }, { data: mem }, { data: ta }, { data: ev }, { data: rd }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
       supabase.from('team_members').select('*, profile:profiles(*)').eq('team_id', id),
-      supabase.from('team_athletes').select('athlete:athletes(*)').eq('team_id', id),
+      supabase.from('team_athletes').select('jersey_number, athlete:athletes(*)').eq('team_id', id),
       supabase.rpc('my_events', { p_from: from.toISOString(), p_to: to.toISOString() }),
       supabase.from('team_reads').select('last_read_at').eq('team_id', id).eq('profile_id', profile.id).maybeSingle(),
     ]);
     setTeam(tm as Team);
     setMembers(mem ?? []);
-    setRoster((ta ?? []).map((r) => r.athlete));
+    setRoster((ta ?? []).map((r) => ({ ...r.athlete, jersey_number: r.jersey_number })));
     setEvents(((ev as MyEvent[]) ?? []).filter((e) => e.team_id === id));
     const [{ data: rec }, { data: fin }, { data: led }] = await Promise.all([
       supabase.rpc('team_record', { p_team_id: id }),
@@ -295,16 +295,29 @@ export default function TeamSpace() {
               No players yet. Parents add their own kids when they join.
             </Text>
           ) : null}
-          <Row style={{ flexWrap: 'wrap' }}>
-            {roster.map((a) => (
-              <Chip
-                key={a.id}
-                label={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`}
-                dot={a.color}
-                onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: a.id } })}
-              />
-            ))}
-          </Row>
+          {/* Numbers sort the roster the way a coach reads a lineup card; kids without one go last, by name. */}
+          <Stack gap={0}>
+            {[...roster]
+              .sort((a, b) => (Number(a.jersey_number ?? 999) - Number(b.jersey_number ?? 999)) || a.first_name.localeCompare(b.first_name))
+              .map((a) => (
+                <ListRow
+                  key={a.id}
+                  leading={<Avatar name={a.first_name} color={a.color} uri={a.photo_url} size={40} />}
+                  title={`${a.first_name} ${a.last_initial ? a.last_initial + '.' : ''}`}
+                  right={
+                    <Row gap={space.sm}>
+                      {a.jersey_number ? (
+                        <Text variant="mono" color="muted">
+                          #{a.jersey_number}
+                        </Text>
+                      ) : null}
+                      <Text color="faint">›</Text>
+                    </Row>
+                  }
+                  onPress={() => router.push({ pathname: '/athlete/[id]', params: { id: a.id } })}
+                />
+              ))}
+          </Stack>
           {myKidsNotOnRoster.length ? (
             <View style={{ marginTop: space.md }}>
               <Text variant="small" color="muted">

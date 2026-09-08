@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Switch, View } from 'react-native';
 
+import { DemoPanel } from '@/components/demo-panel';
 import { BackLink, Button, Card, Divider, Input, Row, Screen, SectionHeader, Stack, Text } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
@@ -121,6 +122,8 @@ export default function Me() {
           <Button title="Email support" kind="secondary" onPress={() => Linking.openURL('mailto:support@huddleup.app?subject=Huddle%20Up%20help')} />
         </View>
       </Card>
+
+      <DemoPanel />
 
       <SectionHeader title="Promise" />
       <Text variant="small" color="muted">

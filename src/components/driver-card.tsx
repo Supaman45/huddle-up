@@ -90,7 +90,7 @@ export function DriverCard({
           {car.riders.map((r) => (
             <Row key={r.request_id} style={{ justifyContent: 'space-between' }}>
               <Row gap={8}>
-                <Avatar name={r.first_name} color={r.color} size={24} ring={r.mine ? t.accent : undefined} />
+                <Avatar name={r.first_name} color={r.color} uri={r.photo_url} size={24} ring={r.mine ? t.accent : undefined} />
                 <Text variant="small" color={r.mine ? 'accent' : undefined}>
                   {kidName(r)}
                   {r.mine ? '  · yours' : ''}

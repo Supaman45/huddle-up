@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -354,8 +355,8 @@ export function ListRow({
   );
 }
 
-// ---------- Avatar (initials) ----------
-export function Avatar({ name, color, size = 36, ring }: { name: string; color?: string; size?: number; ring?: string }) {
+// ---------- Avatar (initials, or a picture when there is one) ----------
+export function Avatar({ name, color, size = 36, ring, uri }: { name: string; color?: string; size?: number; ring?: string; uri?: string | null }) {
   const t = useTheme();
   const initials = name
     .split(' ')
@@ -363,18 +364,26 @@ export function Avatar({ name, color, size = 36, ring }: { name: string; color?:
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase())
     .join('');
+  const frame = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    backgroundColor: color ?? t.surfaceAlt,
+    borderWidth: ring ? 2 : 1,
+    borderColor: ring ?? t.line,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    overflow: 'hidden' as const,
+  };
+  if (uri) {
+    return (
+      <View style={frame}>
+        <Image source={{ uri }} style={{ width: size, height: size }} accessibilityLabel={name} />
+      </View>
+    );
+  }
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: color ?? t.surfaceAlt,
-        borderWidth: ring ? 2 : 1,
-        borderColor: ring ?? t.line,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
+    <View style={frame}>
       <RNText style={{ fontFamily: fonts.displayBold, fontSize: size * 0.42, color: color ? '#0F1620' : t.ink }}>{initials || '?'}</RNText>
     </View>
   );

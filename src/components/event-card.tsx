@@ -100,7 +100,7 @@ export function EventCard({ ev, athletes, hero = false }: { ev: MyEvent; athlete
           <Row gap={0}>
             {kids.map((k, i) => (
               <View key={k.id} style={{ marginLeft: i === 0 ? 0 : -8 }}>
-                <Avatar name={k.first_name} color={k.color} size={26} ring={hero ? t.surfaceAlt : t.surface} />
+                <Avatar name={k.first_name} color={k.color} uri={k.photo_url} size={26} ring={hero ? t.surfaceAlt : t.surface} />
               </View>
             ))}
           </Row>
