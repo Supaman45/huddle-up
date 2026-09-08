@@ -1,0 +1,5 @@
+-- Applied live as "schedule_hourly_ics_sync" + "cron_token_check_rpc" (2026-09-08).
+-- The hourly pg_cron job calls the ics-sync edge function with a token kept in
+-- private.job_secrets, verified through public.check_cron_token() because PostgREST
+-- only exposes the public schema. No service-role key is stored in the database.
+-- Job: ics-sync-hourly, '7 * * * *'.

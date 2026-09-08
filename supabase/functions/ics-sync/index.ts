@@ -166,8 +166,10 @@ Deno.serve(async (req: Request) => {
     return Response.json(await syncTeam(admin, team as { id: string; ics_url: string }));
   }
 
-  // cron path: service role only
-  if (!authHeader.includes(SERVICE_KEY)) return new Response('Unauthorized', { status: 401 });
+  // Scheduled path: the hourly pg_cron job presents a token stored only in the database.
+  const cronToken = req.headers.get('x-cron-token') ?? '';
+  const { data: okCron } = cronToken ? await admin.rpc('check_cron_token', { p_token: cronToken }) : { data: false };
+  if (!okCron && !authHeader.includes(SERVICE_KEY)) return new Response('Unauthorized', { status: 401 });
   const { data: teams } = await admin.from('teams').select('id, ics_url').not('ics_url', 'is', null);
   const results = [];
   for (const t of (teams ?? []) as { id: string; ics_url: string }[]) results.push(await syncTeam(admin, t));
