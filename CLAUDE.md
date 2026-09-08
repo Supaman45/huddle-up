@@ -31,6 +31,21 @@ Everything in `src/lib/types.ts` derives from it; never restate a column by hand
   `is_team_member` / `is_household_member` INSIDE the body. Passing a foreign id is the
   attack. Run `get_advisors` after any migration that adds one.
 - Pure logic belongs in `src/lib` where it can be tested, not inside a component.
+- The React Compiler is ON. Never write `profile!.id` (or any `x!.field`) inside a component,
+  even inside a handler: the compiler hoists the read out as a memo dependency and runs it
+  during render, which crashes on a deep link before the session resolves. Read
+  `const uid = profile?.id ?? null` once and guard inside the handler.
+- Ride detail lives on the Carpool tab. The schedule card carries ONE status pill and nothing
+  else about rides.
+- `Alert.alert` is a no-op on the web. Report failures with the toast.
+- Edge functions called from the app must answer the CORS preflight (OPTIONS) and carry the
+  headers on every response, or the web build cannot call them.
+
+## Demo mode
+Settings shows a Demo panel to profiles in `app_admins` (`is_app_admin()`); the `demo` edge
+function checks the same table. Load creates a marked team (`teams.is_demo`) with parents under
+`@demo.huddleup.test`; reset removes exactly that. Dates are computed from today, so the demo
+is always in the future.
 
 ## Run
 ```
