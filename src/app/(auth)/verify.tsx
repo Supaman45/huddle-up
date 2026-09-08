@@ -14,8 +14,8 @@ export default function Verify() {
   const [error, setError] = useState<string | null>(null);
 
   async function verify() {
-    if (code.trim().length < 6) {
-      setError('Enter the six-digit code from your email.');
+    if (code.trim().length < 6 || code.trim().length > 10) {
+      setError('Enter the code from your email.');
       return;
     }
     setBusy(true);
@@ -35,7 +35,7 @@ export default function Verify() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center' }}>
         <View style={{ gap: space.sm }}>
           <Text variant="h1">Check your email</Text>
-          <Text color="muted">We sent a six-digit code to {email}.</Text>
+          <Text color="muted">We sent a sign-in code to {email}.</Text>
         </View>
         <Spacer h={space.xxl} />
         <Stack>
@@ -45,11 +45,11 @@ export default function Verify() {
             keyboardType="number-pad"
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={10}
             value={code}
             onChangeText={setCode}
             onSubmitEditing={verify}
-            style={{ fontSize: 28, letterSpacing: 6, textAlign: 'center' }}
+            style={{ fontSize: 26, letterSpacing: 4, textAlign: 'center' }}
           />
           {error ? (
             <Text variant="small" color="danger">
